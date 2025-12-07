@@ -1,0 +1,131 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local localPlayer = Players.LocalPlayer
+
+--// TRACK PROMPTS (zero lag)
+local prompts = {}
+
+local function register(obj)
+    if obj:IsA("ProximityPrompt") then
+        table.insert(prompts, obj)
+    end
+end
+
+local function unregister(obj)
+    for i,v in ipairs(prompts) do
+        if v == obj then
+            table.remove(prompts, i)
+            break
+        end
+    end
+end
+
+-- Add existing prompts
+for _, obj in ipairs(Workspace:GetDescendants()) do
+    register(obj)
+end
+
+-- Detect new prompts added
+Workspace.DescendantAdded:Connect(register)
+
+-- Detect prompts removed
+Workspace.DescendantRemoving:Connect(unregister)
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(0, 100, 0, 40)
+autoBtn.Position = UDim2.new(1, -110, 0.18, -20)
+autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextSize = 18
+autoBtn.Text = "Grab: OFF"
+autoBtn.Parent = gui
+autoBtn.BorderSizePixel = 0
+autoBtn.ZIndex = 5
+
+-- Hover effect
+autoBtn.MouseEnter:Connect(function()
+    autoBtn.BackgroundColor3 = (autoBtn.Text == "Grab: ON")
+        and Color3.fromRGB(0,150,0)
+        or Color3.fromRGB(180,40,40)
+end)
+autoBtn.MouseLeave:Connect(function()
+    autoBtn.BackgroundColor3 = (autoBtn.Text == "Grab: ON")
+        and Color3.fromRGB(0,170,0)
+        or Color3.fromRGB(200,50,50)
+end)
+
+--// LOGIC
+local enabled = false
+local holding = {}
+local RANGE = 12
+
+local function findAnyPart(obj)
+    if obj.Parent:IsA("BasePart") then return obj.Parent end
+    local model = obj.Parent
+    if model:IsA("Model") then
+        if model.PrimaryPart then return model.PrimaryPart end
+        for _, d in ipairs(model:GetDescendants()) do
+            if d:IsA("BasePart") then return d end
+        end
+    end
+    local p = obj
+    while p.Parent do
+        p = p.Parent
+        if p:IsA("BasePart") then return p end
+    end
+    return nil
+end
+
+autoBtn.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    if enabled then
+        autoBtn.Text = "Grab: ON"
+        autoBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+    else
+        autoBtn.Text = "Grab: OFF"
+        autoBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+
+        for prompt,_ in pairs(holding) do
+            pcall(function() prompt:InputHoldEnd() end)
+        end
+        holding = {}
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not enabled then return end
+
+    local char = localPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- ZERO LAG: LOOP ONLY PROMPTS WE TRACK
+    for _, prompt in ipairs(prompts) do
+        if prompt:IsA("ProximityPrompt") then
+
+            local part = findAnyPart(prompt)
+            if not part then continue end
+
+            local dist = (hrp.Position - part.Position).Magnitude
+            if dist <= RANGE and prompt.Enabled then
+                pcall(function() prompt:InputHoldBegin() end)
+                holding[prompt] = true
+            else
+                if holding[prompt] then
+                    pcall(function() prompt:InputHoldEnd() end)
+                    holding[prompt] = nil
+                end
+            end
+        end
+    end
+end)
