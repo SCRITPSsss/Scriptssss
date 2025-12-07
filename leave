@@ -1,0 +1,32 @@
+-- Create a simple leave button (middle-right)
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 100, 0, 40)
+button.Position = UDim2.new(1, -110, 0.43, -20) -- middle-right
+button.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.Text = "Leave"
+button.Parent = gui
+button.AutoButtonColor = true
+button.BorderSizePixel = 0
+button.ZIndex = 5
+button.Active = true
+
+-- Hover effect
+button.MouseEnter:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+end)
+button.MouseLeave:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+end)
+
+-- Leave action
+button.MouseButton1Click:Connect(function()
+	player:Kick("You have left the game.")
+end)
