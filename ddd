@@ -1,0 +1,43 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local localPlayer = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 100, 0, 40)
+button.Position = UDim2.new(1, -110, 0.3, -20) -- higher than the leave button
+button.BackgroundColor3 = Color3.fromRGB(75, 75, 255)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.Text = "Ragdoll"
+button.Parent = gui
+button.AutoButtonColor = true
+button.BorderSizePixel = 0
+button.ZIndex = 5
+button.Active = true
+
+-- Hover effect
+button.MouseEnter:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(55, 55, 255)
+end)
+button.MouseLeave:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(75, 75, 255)
+end)
+
+-- Execute ragdoll command
+button.MouseButton1Click:Connect(function()
+	local args = {
+		localPlayer,
+		"ragdoll"
+	}
+
+	ReplicatedStorage
+		:WaitForChild("Packages")
+		:WaitForChild("Net")
+		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+		:FireServer(unpack(args))
+end)
