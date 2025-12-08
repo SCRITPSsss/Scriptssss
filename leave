@@ -13,11 +13,11 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 --==================--
--- AUTO GRAB + RAGDOLL BUTTON
+-- AUTO GRAB BUTTON
 --==================--
 local autoBtn = Instance.new("TextButton")
 autoBtn.Size = UDim2.new(0, 100, 0, 40)
-autoBtn.Position = UDim2.new(1, -110, 0.3, -20) -- same as ragdoll button position
+autoBtn.Position = UDim2.new(1, -110, 0.3, -20)
 autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 autoBtn.Font = Enum.Font.GothamBold
@@ -25,9 +25,7 @@ autoBtn.TextSize = 18
 autoBtn.Text = "Grab: OFF"
 autoBtn.Parent = gui
 autoBtn.BorderSizePixel = 0
-autoBtn.AutoButtonColor = true
 
--- Hover effect
 autoBtn.MouseEnter:Connect(function()
 	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 end)
@@ -39,15 +37,11 @@ autoBtn.MouseLeave:Connect(function()
 	end
 end)
 
---==================--
--- AUTO GRAB + RAGDOLL LOGIC
---==================--
 local autoEnabled = false
 local grabRange = 12
 local holdingPrompts = {}
 local ragdollTimers = {}
 
--- Toggle button
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
 	if autoEnabled then
@@ -56,7 +50,6 @@ autoBtn.MouseButton1Click:Connect(function()
 	else
 		autoBtn.Text = "Grab: OFF"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-		-- Stop holding everything
 		for prompt,_ in pairs(holdingPrompts) do
 			pcall(function() prompt:InputHoldEnd() end)
 		end
@@ -65,7 +58,7 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Find any part associated with a prompt
+-- find part for prompt
 local function findAnyPart(obj)
 	if obj.Parent:IsA("BasePart") then return obj.Parent end
 	local model = obj.Parent
@@ -83,9 +76,21 @@ local function findAnyPart(obj)
 	return nil
 end
 
--- Function to execute ragdoll
-local function doRagdoll()
-	local args = {player, "ragdoll"}
+-- SEND COMMANDS (your AP Spam code)
+local function getOtherPlayer()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			return plr
+		end
+	end
+	return nil
+end
+
+local function runCommand(commandName)
+	local target = getOtherPlayer()
+	if not target then return end
+
+	local args = {target, commandName}
 	ReplicatedStorage
 		:WaitForChild("Packages")
 		:WaitForChild("Net")
@@ -93,7 +98,21 @@ local function doRagdoll()
 		:FireServer(unpack(args))
 end
 
--- Main loop for auto-grab
+local function runAPSpam()
+	runCommand("tiny")
+	runCommand("inverse")
+	runCommand("jumpscare")
+	runCommand("morph")
+	runCommand("rocket")
+	runCommand("balloon")
+
+	task.wait(4.6)
+
+	runCommand("ragdoll")
+	runCommand("jail")
+end
+
+-- MAIN LOOP
 RunService.RenderStepped:Connect(function()
 	if not autoEnabled then return end
 
@@ -108,7 +127,6 @@ RunService.RenderStepped:Connect(function()
 			if part then
 				local dist = (hrp.Position - part.Position).Magnitude
 				if dist <= grabRange then
-					-- Start holding or continue holding every frame
 					pcall(function() prompt:InputHoldBegin() end)
 					holdingPrompts[prompt] = true
 				else
@@ -123,18 +141,27 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- Ragdoll trigger when holding a prompt for 1.4 seconds
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, inputType)
+-- RAGDOLL AFTER 1.45 SEC HOLD
+local function doRagdoll()
+	runCommand("ragdoll")
+end
+
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
 	if not autoEnabled then return end
 	ragdollTimers[prompt] = true
-	task.delay(1.4, function()
+	task.delay(1.45, function()
 		if ragdollTimers[prompt] and autoEnabled then
 			doRagdoll()
-			ragdollTimers[prompt] = nil
 		end
 	end)
 end)
 
-ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, inputType)
+-- When holding ENDS successfully → AP Spam fires
+ProximityPromptService.PromptTriggered:Connect(function(prompt)
+	ragdollTimers[prompt] = nil
+	task.spawn(runAPSpam)
+end)
+
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
 	ragdollTimers[prompt] = nil
 end)
