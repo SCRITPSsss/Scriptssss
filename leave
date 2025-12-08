@@ -1,32 +1,67 @@
--- Create a simple leave button (middle-right)
-local player = game.Players.LocalPlayer
+--// SERVICES
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+--// GUI
 local gui = Instance.new("ScreenGui")
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 40)
-button.Position = UDim2.new(1, -110, 0.43, -20) -- middle-right
-button.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.GothamBold
-button.TextSize = 18
-button.Text = "Leave"
-button.Parent = gui
-button.AutoButtonColor = true
-button.BorderSizePixel = 0
-button.ZIndex = 5
-button.Active = true
+-- Toggle button
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.new(0, 100, 0, 40)
+toggle.Position = UDim2.new(1, -110, 0.3, -20)
+toggle.BackgroundColor3 = Color3.fromRGB(0, 38, 255)
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 18
+toggle.Text = "Ragdoll"
+toggle.Parent = gui
+toggle.BorderSizePixel = 0
 
--- Hover effect
-button.MouseEnter:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-end)
-button.MouseLeave:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+local enabled = false
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	if enabled then
+		toggle.BackgroundColor3 = Color3.fromRGB(70, 255, 70)
+		toggle.Text = "Ragdoll"
+	else
+		toggle.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+		toggle.Text = "Ragdoll"
+	end
 end)
 
--- Leave action
-button.MouseButton1Click:Connect(function()
-	player:Kick("You have left the game.")
+-- Function to execute ragdoll
+local function doRagdoll()
+	local args = {player, "ragdoll"}
+	ReplicatedStorage
+		:WaitForChild("Packages")
+		:WaitForChild("Net")
+		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+		:FireServer(unpack(args))
+end
+
+-- Track holding prompts
+local holdingPrompts = {}
+
+-- When player starts holding a prompt
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, inputType)
+	if not enabled then return end
+
+	-- Start 1.4 second timer
+	holdingPrompts[prompt] = true
+	task.delay(1.4, function()
+		if holdingPrompts[prompt] and enabled then
+			doRagdoll()
+			holdingPrompts[prompt] = nil -- prevent multiple fires
+		end
+	end)
+end)
+
+-- When player stops holding or moves away
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, inputType)
+	holdingPrompts[prompt] = nil
 end)
