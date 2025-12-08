@@ -1,74 +1,112 @@
---// GUI CREATION --------------------------------------------
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
-local player = game.Players.LocalPlayer
+local localPlayer = Players.LocalPlayer
+
+--// GUI
 local gui = Instance.new("ScreenGui")
-gui.Parent = player:WaitForChild("PlayerGui")
-gui.Name = "AdminButtonGui"
 gui.ResetOnSpawn = false
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 40)  -- SAME SIZE as Leave button
-button.Position = UDim2.new(1, -110, 0.55, -20)
-button.BackgroundColor3 = Color3.fromRGB(255, 0, 4) -- RED
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.GothamBold
-button.TextSize = 18
-button.Text = "AP Spam"
-button.Parent = gui
-button.AutoButtonColor = true
-button.BorderSizePixel = 0
-button.ZIndex = 5
-button.Active = true
+--// AUTO GRAB BUTTON
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(0, 100, 0, 40)
+autoBtn.Position = UDim2.new(1, -110, 0.18, -20)
+autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextSize = 18
+autoBtn.Text = "Grab: OFF"
+autoBtn.Parent = gui
+autoBtn.AutoButtonColor = true
+autoBtn.BorderSizePixel = 0
+autoBtn.ZIndex = 5
+autoBtn.Active = true
 
--- Proper red hover
-button.MouseEnter:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
+-- Hover effect
+autoBtn.MouseEnter:Connect(function()
+	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 end)
-button.MouseLeave:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 0, 4)
+autoBtn.MouseLeave:Connect(function()
+	if autoBtn.Text == "Grab: ON" then
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	end
 end)
 
---// COMMAND EXECUTION ---------------------------------------
+--// AUTO GRAB LOGIC
+local enabled = false
+local RANGE = 12
 
-local function getOtherPlayer()
-	for _, plr in ipairs(game.Players:GetPlayers()) do
-		if plr ~= game.Players.LocalPlayer then
-			return plr
+-- Keeps track of prompts we're currently holding
+local holding = {}
+
+-- Find a part to interact with
+local function findAnyPart(obj)
+	if obj.Parent:IsA("BasePart") then return obj.Parent end
+	local model = obj.Parent
+	if model:IsA("Model") then
+		if model.PrimaryPart then return model.PrimaryPart end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then return d end
 		end
+	end
+	local p = obj
+	while p.Parent do
+		p = p.Parent
+		if p:IsA("BasePart") then return p end
 	end
 	return nil
 end
 
-local function runCommand(commandName)
-	local target = getOtherPlayer()
-	if not target then
-		warn("No other player found in the game!")
-		return
+-- Toggle button
+autoBtn.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	if enabled then
+		autoBtn.Text = "Grab: ON"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.Text = "Grab: OFF"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		-- Stop holding everything
+		for prompt,_ in pairs(holding) do
+			pcall(function() prompt:InputHoldEnd() end)
+		end
+		holding = {}
 	end
+end)
 
-	local args = {
-		target,
-		commandName
-	}
+-- Main loop
+RunService.RenderStepped:Connect(function()
+	if not enabled then return end
 
-	game:GetService("ReplicatedStorage")
-		:WaitForChild("Packages")
-		:WaitForChild("Net")
-		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
-		:FireServer(unpack(args))
-end
+	local char = localPlayer.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
 
-button.MouseButton1Click:Connect(function()
-	-- initial commands
-	runCommand("tiny")
-	runCommand("inverse")
-	runCommand("jumpscare")
-	runCommand("morph")
-	runCommand("rocket")
-	runCommand("balloon")
+	-- Loop through all prompts
+	for _, prompt in ipairs(Workspace:GetDescendants()) do
+		if prompt:IsA("ProximityPrompt") then
+			local part = findAnyPart(prompt)
+			if part then
+				local dist = (hrp.Position - part.Position).Magnitude
 
-	-- delayed commands
-	task.wait(4.6)
-	runCommand("ragdoll")
-	runCommand("jail")
+				if dist <= RANGE and prompt.Enabled then
+					-- Start holding or continue holding every frame
+					pcall(function() prompt:InputHoldBegin() end)
+					holding[prompt] = true
+				else
+					-- Stop holding if out of range or disabled
+					if holding[prompt] then
+						pcall(function() prompt:InputHoldEnd() end)
+						holding[prompt] = nil
+					end
+				end
+			end
+		end
+	end
 end)
