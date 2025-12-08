@@ -1,7 +1,9 @@
 --// SERVICES
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
@@ -10,29 +12,76 @@ local gui = Instance.new("ScreenGui")
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Toggle button
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.new(0, 100, 0, 40)
-toggle.Position = UDim2.new(1, -110, 0.3, -20)
-toggle.BackgroundColor3 = Color3.fromRGB(0, 38, 255)
-toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggle.Font = Enum.Font.GothamBold
-toggle.TextSize = 18
-toggle.Text = "Ragdoll"
-toggle.Parent = gui
-toggle.BorderSizePixel = 0
+--==================--
+-- AUTO GRAB + RAGDOLL BUTTON
+--==================--
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(0, 100, 0, 40)
+autoBtn.Position = UDim2.new(1, -110, 0.3, -20) -- same as ragdoll button position
+autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextSize = 18
+autoBtn.Text = "Grab: OFF"
+autoBtn.Parent = gui
+autoBtn.BorderSizePixel = 0
+autoBtn.AutoButtonColor = true
 
-local enabled = false
-toggle.MouseButton1Click:Connect(function()
-	enabled = not enabled
-	if enabled then
-		toggle.BackgroundColor3 = Color3.fromRGB(70, 255, 70)
-		toggle.Text = "Ragdoll"
+-- Hover effect
+autoBtn.MouseEnter:Connect(function()
+	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+end)
+autoBtn.MouseLeave:Connect(function()
+	if autoBtn.Text == "Grab: ON" then
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
 	else
-		toggle.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
-		toggle.Text = "Ragdoll"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 	end
 end)
+
+--==================--
+-- AUTO GRAB + RAGDOLL LOGIC
+--==================--
+local autoEnabled = false
+local grabRange = 12
+local holdingPrompts = {}
+local ragdollTimers = {}
+
+-- Toggle button
+autoBtn.MouseButton1Click:Connect(function()
+	autoEnabled = not autoEnabled
+	if autoEnabled then
+		autoBtn.Text = "Grab: ON"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.Text = "Grab: OFF"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		-- Stop holding everything
+		for prompt,_ in pairs(holdingPrompts) do
+			pcall(function() prompt:InputHoldEnd() end)
+		end
+		holdingPrompts = {}
+		ragdollTimers = {}
+	end
+end)
+
+-- Find any part associated with a prompt
+local function findAnyPart(obj)
+	if obj.Parent:IsA("BasePart") then return obj.Parent end
+	local model = obj.Parent
+	if model:IsA("Model") then
+		if model.PrimaryPart then return model.PrimaryPart end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then return d end
+		end
+	end
+	local p = obj
+	while p.Parent do
+		p = p.Parent
+		if p:IsA("BasePart") then return p end
+	end
+	return nil
+end
 
 -- Function to execute ragdoll
 local function doRagdoll()
@@ -44,24 +93,48 @@ local function doRagdoll()
 		:FireServer(unpack(args))
 end
 
--- Track holding prompts
-local holdingPrompts = {}
+-- Main loop for auto-grab
+RunService.RenderStepped:Connect(function()
+	if not autoEnabled then return end
 
--- When player starts holding a prompt
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	for _, prompt in ipairs(Workspace:GetDescendants()) do
+		if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+			local part = findAnyPart(prompt)
+			if part then
+				local dist = (hrp.Position - part.Position).Magnitude
+				if dist <= grabRange then
+					-- Start holding or continue holding every frame
+					pcall(function() prompt:InputHoldBegin() end)
+					holdingPrompts[prompt] = true
+				else
+					if holdingPrompts[prompt] then
+						pcall(function() prompt:InputHoldEnd() end)
+						holdingPrompts[prompt] = nil
+						ragdollTimers[prompt] = nil
+					end
+				end
+			end
+		end
+	end
+end)
+
+-- Ragdoll trigger when holding a prompt for 1.4 seconds
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, inputType)
-	if not enabled then return end
-
-	-- Start 1.4 second timer
-	holdingPrompts[prompt] = true
+	if not autoEnabled then return end
+	ragdollTimers[prompt] = true
 	task.delay(1.4, function()
-		if holdingPrompts[prompt] and enabled then
+		if ragdollTimers[prompt] and autoEnabled then
 			doRagdoll()
-			holdingPrompts[prompt] = nil -- prevent multiple fires
+			ragdollTimers[prompt] = nil
 		end
 	end)
 end)
 
--- When player stops holding or moves away
 ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, inputType)
-	holdingPrompts[prompt] = nil
+	ragdollTimers[prompt] = nil
 end)
