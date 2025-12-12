@@ -12,106 +12,186 @@ local gui = Instance.new("ScreenGui")
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- AUTO GRAB BUTTON (single button)
 local autoBtn = Instance.new("TextButton")
 autoBtn.Size = UDim2.new(0, 100, 0, 40)
 autoBtn.Position = UDim2.new(1, -110, 0.3, -20)
 autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-autoBtn.TextColor3 = Color3.fromRGB(255,255,255)
+autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 autoBtn.Font = Enum.Font.GothamBold
 autoBtn.TextSize = 18
 autoBtn.Text = "Grab: OFF"
 autoBtn.Parent = gui
 autoBtn.BorderSizePixel = 0
 
---// STATE
+autoBtn.MouseEnter:Connect(function()
+	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+end)
+autoBtn.MouseLeave:Connect(function()
+	if autoBtn.Text == "Grab: ON" then
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	end
+end)
+
+-- STATE
 local autoEnabled = false
 local grabRange = 12
-
-local activePrompt = nil
-local isHolding = false
-local holdStart = 0
-local fired = false
+local holdingPrompts = {}   -- track client holds (true while we are holding)
+local ragdollTimers = {}    -- track ragdoll timers for prompts
 
 -- Toggle
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
-	autoBtn.Text = autoEnabled and "Grab: ON" or "Grab: OFF"
-	autoBtn.BackgroundColor3 = autoEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(200,50,50)
-
-	if not autoEnabled and activePrompt then
-		pcall(function() activePrompt:InputHoldEnd() end)
-		activePrompt = nil
+	if autoEnabled then
+		autoBtn.Text = "Grab: ON"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.Text = "Grab: OFF"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		-- stop all holds
+		for prompt,_ in pairs(holdingPrompts) do
+			pcall(function() prompt:InputHoldEnd() end)
+		end
+		holdingPrompts = {}
+		ragdollTimers = {}
 	end
 end)
 
--- Find prompt part
-local function getPromptPart(prompt)
-	if prompt.Parent:IsA("BasePart") then return prompt.Parent end
-	if prompt.Parent:IsA("Model") then
-		return prompt.Parent.PrimaryPart or prompt.Parent:FindFirstChildWhichIsA("BasePart")
+-- helper: find a basepart for a prompt
+local function findAnyPart(prompt)
+	if not prompt or not prompt.Parent then return nil end
+	local parent = prompt.Parent
+	if parent:IsA("BasePart") then return parent end
+	if parent:IsA("Model") then
+		if parent.PrimaryPart then return parent.PrimaryPart end
+		for _,v in ipairs(parent:GetDescendants()) do
+			if v:IsA("BasePart") then return v end
+		end
 	end
+	local p = parent
+	while p and p.Parent do
+		p = p.Parent
+		if p:IsA("BasePart") then return p end
+	end
+	return nil
 end
 
--- Other player
+-- AP SPAM FUNCTIONS (your code)
 local function getOtherPlayer()
-	for _,p in ipairs(Players:GetPlayers()) do
-		if p ~= player then return p end
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			return plr
+		end
 	end
+	return nil
 end
 
--- Command
-local function runCommand(cmd, target)
+local function runCommand(commandName)
+	local target = getOtherPlayer()
+	if not target then return end
+
+	local args = {target, commandName}
 	pcall(function()
-		ReplicatedStorage.Packages.Net["RE/AdminPanelService/ExecuteCommand"]:FireServer(target, cmd)
+		ReplicatedStorage
+			:WaitForChild("Packages")
+			:WaitForChild("Net")
+			:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+			:FireServer(unpack(args))
 	end)
 end
 
--- AUTO HOLD (SAFE)
-RunService.Heartbeat:Connect(function()
-	if not autoEnabled or activePrompt then return end
+local function runAPSpam()
+	-- run sequence (non-blocking)
+	task.spawn(function()
+		runCommand("tiny")
+		runCommand("inverse")
+		runCommand("jumpscare")
+		runCommand("morph")
+		runCommand("rocket")
+		runCommand("balloon")
 
+		task.wait(4.6)
+
+		runCommand("ragdoll")
+		runCommand("jail")
+	end)
+end
+
+-- Ragdoll function (called after 1.45s hold)
+local function doRagdoll()
+	pcall(function()
+		local args = {player, "ragdoll"}
+		ReplicatedStorage
+			:WaitForChild("Packages")
+			:WaitForChild("Net")
+			:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+			:FireServer(unpack(args))
+	end)
+end
+
+-- MAIN: auto-hold prompts that are in range
+RunService.RenderStepped:Connect(function()
+	if not autoEnabled then return end
 	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	for _,prompt in ipairs(Workspace:GetDescendants()) do
+	-- iterate workspace prompts (you can optimize further to track prompts only)
+	for _, prompt in ipairs(Workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-			local part = getPromptPart(prompt)
-			if part and (hrp.Position - part.Position).Magnitude <= grabRange then
-				activePrompt = prompt
-				pcall(function() prompt:InputHoldBegin() end)
-				break
+			local part = findAnyPart(prompt)
+			if part then
+				local dist = (hrp.Position - part.Position).Magnitude
+				if dist <= grabRange then
+					-- ensure we call InputHoldBegin every frame while in range
+					pcall(function() prompt:InputHoldBegin() end)
+					holdingPrompts[prompt] = true
+				else
+					-- stop holding if we had been holding
+					if holdingPrompts[prompt] then
+						pcall(function() prompt:InputHoldEnd() end)
+						holdingPrompts[prompt] = nil
+						ragdollTimers[prompt] = nil
+					end
+				end
 			end
 		end
 	end
 end)
 
--- HOLD START (REAL)
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
-	if not autoEnabled or prompt ~= activePrompt then return end
-	isHolding = true
-	holdStart = tick()
-	fired = false
-end)
-
--- HOLD END (INSTANT CANCEL)
-ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
-	if prompt == activePrompt then
-		isHolding = false
-		activePrompt = nil
-		fired = false
-	end
-end)
-
--- TIMER (CLEAN)
-RunService.Heartbeat:Connect(function()
-	if not isHolding or fired then return end
-
-	if tick() - holdStart >= 1.45 then
-		local other = getOtherPlayer()
-		if other then
-			runCommand("balloon", other)
+-- When player begins holding (exact event)
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, inputType)
+	if not autoEnabled then return end
+	-- start timer entry; store start time
+	ragdollTimers[prompt] = tick()
+	-- schedule ragdoll check after 1.45s
+	task.delay(1.45, function()
+		-- still holding and still enabled?
+		if ragdollTimers[prompt] and holdingPrompts[prompt] and autoEnabled then
+			-- execute ragdoll once
+			doRagdoll()
+			-- mark that we've triggered so we don't repeat
+			ragdollTimers[prompt] = nil
 		end
-		fired = true
+	end)
+end)
+
+-- When player stops holding
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, inputType)
+	-- clear timer so scheduled task won't fire
+	ragdollTimers[prompt] = nil
+end)
+
+-- WHEN PROMPT FINISHES (triggered) run AP spam IMMEDIATELY (only if this client triggered it)
+ProximityPromptService.PromptTriggered:Connect(function(prompt, inputType, triggeringPlayer)
+	-- Some environments call PromptTriggered with 2 args, some 3. Check if third arg exists.
+	if triggeringPlayer and triggeringPlayer ~= player then
+		return -- not triggered by us
 	end
+	if not autoEnabled then return end
+	-- run AP spam right away
+	runAPSpam()
 end)
