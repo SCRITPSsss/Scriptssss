@@ -12,193 +12,106 @@ local gui = Instance.new("ScreenGui")
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- AUTO GRAB BUTTON
 local autoBtn = Instance.new("TextButton")
 autoBtn.Size = UDim2.new(0, 100, 0, 40)
 autoBtn.Position = UDim2.new(1, -110, 0.3, -20)
 autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoBtn.TextColor3 = Color3.fromRGB(255,255,255)
 autoBtn.Font = Enum.Font.GothamBold
 autoBtn.TextSize = 18
 autoBtn.Text = "Grab: OFF"
 autoBtn.Parent = gui
 autoBtn.BorderSizePixel = 0
 
-autoBtn.MouseEnter:Connect(function()
-	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-end)
-
-autoBtn.MouseLeave:Connect(function()
-	if autoBtn.Text == "Grab: ON" then
-		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-	else
-		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-	end
-end)
-
 --// STATE
 local autoEnabled = false
 local grabRange = 12
 
 local activePrompt = nil
-local holdStartTime = 0
-local holdConnection = nil
+local isHolding = false
+local holdStart = 0
+local fired = false
 
--- Toggle auto-grab
+-- Toggle
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
+	autoBtn.Text = autoEnabled and "Grab: ON" or "Grab: OFF"
+	autoBtn.BackgroundColor3 = autoEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(200,50,50)
 
-	if autoEnabled then
-		autoBtn.Text = "Grab: ON"
-		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-	else
-		autoBtn.Text = "Grab: OFF"
-		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-
-		-- hard cancel everything
-		if activePrompt then
-			pcall(function() activePrompt:InputHoldEnd() end)
-		end
+	if not autoEnabled and activePrompt then
+		pcall(function() activePrompt:InputHoldEnd() end)
 		activePrompt = nil
-		holdStartTime = 0
-
-		if holdConnection then
-			holdConnection:Disconnect()
-			holdConnection = nil
-		end
 	end
 end)
 
--- helper: find a basepart for a prompt
-local function findAnyPart(prompt)
-	if not prompt or not prompt.Parent then return nil end
+-- Find prompt part
+local function getPromptPart(prompt)
 	if prompt.Parent:IsA("BasePart") then return prompt.Parent end
 	if prompt.Parent:IsA("Model") then
-		if prompt.Parent.PrimaryPart then return prompt.Parent.PrimaryPart end
-		for _,v in ipairs(prompt.Parent:GetDescendants()) do
-			if v:IsA("BasePart") then return v end
-		end
+		return prompt.Parent.PrimaryPart or prompt.Parent:FindFirstChildWhichIsA("BasePart")
 	end
-	local p = prompt.Parent
-	while p and p.Parent do
-		p = p.Parent
-		if p:IsA("BasePart") then return p end
-	end
-	return nil
 end
 
--- Find the only other player
+-- Other player
 local function getOtherPlayer()
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= player then return plr end
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= player then return p end
 	end
-	return nil
 end
 
--- Fire a command on a target
-local function runCommand(commandName, targetPlayer)
-	local args = {targetPlayer, commandName}
+-- Command
+local function runCommand(cmd, target)
 	pcall(function()
-		ReplicatedStorage
-			:WaitForChild("Packages")
-			:WaitForChild("Net")
-			:WaitForChild("RE/AdminPanelService/ExecuteCommand")
-			:FireServer(unpack(args))
+		ReplicatedStorage.Packages.Net["RE/AdminPanelService/ExecuteCommand"]:FireServer(target, cmd)
 	end)
 end
 
--- MAIN: auto-hold prompts in range
-RunService.RenderStepped:Connect(function()
-	if not autoEnabled then return end
+-- AUTO HOLD (SAFE)
+RunService.Heartbeat:Connect(function()
+	if not autoEnabled or activePrompt then return end
 
 	local char = player.Character
-	if not char then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	for _, prompt in ipairs(Workspace:GetDescendants()) do
+	for _,prompt in ipairs(Workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-			local part = findAnyPart(prompt)
-			if part then
-				local dist = (hrp.Position - part.Position).Magnitude
-				if dist <= grabRange then
-					-- begin hold if not already holding this prompt
-					if activePrompt ~= prompt then
-						if activePrompt then
-							pcall(function() activePrompt:InputHoldEnd() end)
-						end
-						activePrompt = prompt
-						pcall(function() prompt:InputHoldBegin() end)
-					end
-				else
-					-- out of range → cancel
-					if activePrompt == prompt then
-						pcall(function() prompt:InputHoldEnd() end)
-						activePrompt = nil
-					end
-				end
+			local part = getPromptPart(prompt)
+			if part and (hrp.Position - part.Position).Magnitude <= grabRange then
+				activePrompt = prompt
+				pcall(function() prompt:InputHoldBegin() end)
+				break
 			end
 		end
 	end
 end)
 
--- HOLD BEGAN → start counting
+-- HOLD START (REAL)
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
-	if not autoEnabled then return end
-
-	-- cancel any previous hold timer
-	if holdConnection then
-		holdConnection:Disconnect()
-		holdConnection = nil
-	end
-
-	activePrompt = prompt
-	holdStartTime = tick()
-
-	holdConnection = RunService.Heartbeat:Connect(function()
-		if activePrompt ~= prompt then
-			holdConnection:Disconnect()
-			holdConnection = nil
-			return
-		end
-
-		if tick() - holdStartTime >= 1.45 then
-			local other = getOtherPlayer()
-			if other then
-				runCommand("balloon", other)
-			end
-
-			holdConnection:Disconnect()
-			holdConnection = nil
-		end
-	end)
+	if not autoEnabled or prompt ~= activePrompt then return end
+	isHolding = true
+	holdStart = tick()
+	fired = false
 end)
 
--- HOLD ENDED → instant cancel
+-- HOLD END (INSTANT CANCEL)
 ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
-	if activePrompt == prompt then
+	if prompt == activePrompt then
+		isHolding = false
 		activePrompt = nil
-	end
-
-	if holdConnection then
-		holdConnection:Disconnect()
-		holdConnection = nil
+		fired = false
 	end
 end)
 
--- PROMPT TRIGGERED (optional spam after completion)
-ProximityPromptService.PromptTriggered:Connect(function(prompt, inputType, triggeringPlayer)
-	if triggeringPlayer and triggeringPlayer ~= player then return end
-	if not autoEnabled then return end
+-- TIMER (CLEAN)
+RunService.Heartbeat:Connect(function()
+	if not isHolding or fired then return end
 
-	task.spawn(function()
+	if tick() - holdStart >= 1.45 then
 		local other = getOtherPlayer()
 		if other then
-			runCommand("tiny", other)
-			runCommand("inverse", other)
-			runCommand("jumpscare", other)
-			runCommand("morph", other)
-			runCommand("rocket", other)
+			runCommand("balloon", other)
 		end
-	end)
+		fired = true
+	end
 end)
