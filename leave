@@ -27,6 +27,7 @@ autoBtn.BorderSizePixel = 0
 autoBtn.MouseEnter:Connect(function()
 	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 end)
+
 autoBtn.MouseLeave:Connect(function()
 	if autoBtn.Text == "Grab: ON" then
 		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
@@ -35,26 +36,36 @@ autoBtn.MouseLeave:Connect(function()
 	end
 end)
 
--- STATE
+--// STATE
 local autoEnabled = false
 local grabRange = 12
-local holdingPrompts = {}
-local ragdollTimers = {}
+
+local activePrompt = nil
+local holdStartTime = 0
+local holdConnection = nil
 
 -- Toggle auto-grab
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
+
 	if autoEnabled then
 		autoBtn.Text = "Grab: ON"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
 	else
 		autoBtn.Text = "Grab: OFF"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-		for prompt,_ in pairs(holdingPrompts) do
-			pcall(function() prompt:InputHoldEnd() end)
+
+		-- hard cancel everything
+		if activePrompt then
+			pcall(function() activePrompt:InputHoldEnd() end)
 		end
-		holdingPrompts = {}
-		ragdollTimers = {}
+		activePrompt = nil
+		holdStartTime = 0
+
+		if holdConnection then
+			holdConnection:Disconnect()
+			holdConnection = nil
+		end
 	end
 end)
 
@@ -96,9 +107,10 @@ local function runCommand(commandName, targetPlayer)
 	end)
 end
 
--- MAIN: auto-hold prompts that are in range
+-- MAIN: auto-hold prompts in range
 RunService.RenderStepped:Connect(function()
 	if not autoEnabled then return end
+
 	local char = player.Character
 	if not char then return end
 	local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -110,13 +122,19 @@ RunService.RenderStepped:Connect(function()
 			if part then
 				local dist = (hrp.Position - part.Position).Magnitude
 				if dist <= grabRange then
-					pcall(function() prompt:InputHoldBegin() end)
-					holdingPrompts[prompt] = true
+					-- begin hold if not already holding this prompt
+					if activePrompt ~= prompt then
+						if activePrompt then
+							pcall(function() activePrompt:InputHoldEnd() end)
+						end
+						activePrompt = prompt
+						pcall(function() prompt:InputHoldBegin() end)
+					end
 				else
-					if holdingPrompts[prompt] then
+					-- out of range → cancel
+					if activePrompt == prompt then
 						pcall(function() prompt:InputHoldEnd() end)
-						holdingPrompts[prompt] = nil
-						ragdollTimers[prompt] = nil
+						activePrompt = nil
 					end
 				end
 			end
@@ -124,34 +142,55 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- When player begins holding
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, inputType)
+-- HOLD BEGAN → start counting
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
 	if not autoEnabled then return end
-	ragdollTimers[prompt] = tick()
 
-	-- schedule balloon on other player at 1.45s
-	task.delay(1.45, function()
-		if ragdollTimers[prompt] and holdingPrompts[prompt] and autoEnabled then
+	-- cancel any previous hold timer
+	if holdConnection then
+		holdConnection:Disconnect()
+		holdConnection = nil
+	end
+
+	activePrompt = prompt
+	holdStartTime = tick()
+
+	holdConnection = RunService.Heartbeat:Connect(function()
+		if activePrompt ~= prompt then
+			holdConnection:Disconnect()
+			holdConnection = nil
+			return
+		end
+
+		if tick() - holdStartTime >= 1.45 then
 			local other = getOtherPlayer()
 			if other then
 				runCommand("balloon", other)
 			end
-			ragdollTimers[prompt] = nil
+
+			holdConnection:Disconnect()
+			holdConnection = nil
 		end
 	end)
 end)
 
--- When player stops holding
-ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, inputType)
-	ragdollTimers[prompt] = nil
+-- HOLD ENDED → instant cancel
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
+	if activePrompt == prompt then
+		activePrompt = nil
+	end
+
+	if holdConnection then
+		holdConnection:Disconnect()
+		holdConnection = nil
+	end
 end)
 
--- When prompt triggered
+-- PROMPT TRIGGERED (optional spam after completion)
 ProximityPromptService.PromptTriggered:Connect(function(prompt, inputType, triggeringPlayer)
 	if triggeringPlayer and triggeringPlayer ~= player then return end
 	if not autoEnabled then return end
 
-	-- Optional: run other AP spam commands immediately
 	task.spawn(function()
 		local other = getOtherPlayer()
 		if other then
