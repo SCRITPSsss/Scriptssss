@@ -27,7 +27,7 @@ autoBtn.Parent = gui
 -- STATE
 local autoEnabled = false
 local grabRange = 12
-
+local scanning = true
 local holdingPrompts = {}
 local holdStartTimes = {}
 local ragdolledThisHold = {}
@@ -38,9 +38,11 @@ autoBtn.MouseButton1Click:Connect(function()
 	if autoEnabled then
 		autoBtn.Text = "Grab: ON"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+		scanning = true
 	else
 		autoBtn.Text = "Grab: OFF"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		scanning = false
 		for prompt in pairs(holdingPrompts) do
 			pcall(function() prompt:InputHoldEnd() end)
 		end
@@ -80,7 +82,6 @@ end
 local function runCommand(cmd)
 	local target = getOtherPlayer()
 	if not target then return end
-
 	pcall(function()
 		ReplicatedStorage
 			:WaitForChild("Packages")
@@ -90,7 +91,7 @@ local function runCommand(cmd)
 	end)
 end
 
--- ✅ UPDATED AP SPAM (jail delay 1.5s)
+-- AP SPAM (jail after 1.5s)
 local function runAPSpam()
 	task.spawn(function()
 		runCommand("tiny")
@@ -99,7 +100,6 @@ local function runAPSpam()
 		runCommand("morph")
 		runCommand("rocket")
 		runCommand("balloon")
-
 		task.wait(1.5)
 		runCommand("jail")
 	end)
@@ -116,42 +116,55 @@ local function doRagdoll()
 	end)
 end
 
--- MAIN AUTO HOLD LOOP
-RunService.RenderStepped:Connect(function()
-	if not autoEnabled then return end
+-- OPTIMIZED AUTO-HOLD LOOP
+task.spawn(function()
+	while true do
+		task.wait(0.1) -- small wait to reduce lag
 
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp then return end
+		if not autoEnabled or not scanning then
+			task.wait(0.5)
+		else
+			local char = player.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if not hrp then continue end
 
-	for _, prompt in ipairs(Workspace:GetDescendants()) do
-		if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-			local part = findAnyPart(prompt)
-			if not part then continue end
+			local foundPrompt = false
 
-			local inRange = (hrp.Position - part.Position).Magnitude <= grabRange
-
-			if inRange and not holdingPrompts[prompt] then
-				holdingPrompts[prompt] = true
-				holdStartTimes[prompt] = tick()
-				ragdolledThisHold[prompt] = nil
-				pcall(function() prompt:InputHoldBegin() end)
+			for _, prompt in ipairs(Workspace:GetDescendants()) do
+				if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+					local part = findAnyPart(prompt)
+					if part and (hrp.Position - part.Position).Magnitude <= grabRange then
+						-- start holding
+						if not holdingPrompts[prompt] then
+							holdingPrompts[prompt] = true
+							holdStartTimes[prompt] = tick()
+							ragdolledThisHold[prompt] = nil
+							pcall(function() prompt:InputHoldBegin() end)
+							foundPrompt = true
+						end
+						break -- stop scanning after finding one prompt
+					end
+				end
 			end
 
-			if not inRange and holdingPrompts[prompt] then
-				holdingPrompts[prompt] = nil
-				holdStartTimes[prompt] = nil
-				ragdolledThisHold[prompt] = nil
-				pcall(function() prompt:InputHoldEnd() end)
+			-- check holding prompts
+			for prompt in pairs(holdingPrompts) do
+				if not prompt.Parent or not prompt.Enabled then
+					holdingPrompts[prompt] = nil
+					holdStartTimes[prompt] = nil
+					ragdolledThisHold[prompt] = nil
+				else
+					-- ragdoll after 1.4s hold
+					if holdStartTimes[prompt] and not ragdolledThisHold[prompt] and (tick() - holdStartTimes[prompt]) >= 1.4 then
+						doRagdoll()
+						ragdolledThisHold[prompt] = true
+					end
+				end
 			end
 
-			if holdingPrompts[prompt]
-				and holdStartTimes[prompt]
-				and not ragdolledThisHold[prompt]
-				and (tick() - holdStartTimes[prompt]) >= 1.4
-			then
-				doRagdoll()
-				ragdolledThisHold[prompt] = true
+			-- if no prompt found, small delay before next scan
+			if not foundPrompt then
+				task.wait(0.3)
 			end
 		end
 	end
