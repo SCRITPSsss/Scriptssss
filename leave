@@ -113,10 +113,11 @@ local function doRagdoll()
 	end)
 end
 
--- CONTINUOUS SCAN LOOP (ANTI-LAG)
+-- HIGH-SPEED CONTINUOUS SCAN LOOP
 task.spawn(function()
 	while true do
-		task.wait(0.1) -- small delay to reduce lag
+		task.wait(0.03) -- faster scanning (~33ms per loop)
+
 		if not autoEnabled then continue end
 
 		local char = player.Character
