@@ -90,7 +90,7 @@ local function runCommand(cmd)
 	end)
 end
 
--- ✅ UPDATED AP SPAM (ragdoll removed, jail @ 2.1s)
+-- ✅ UPDATED AP SPAM (jail delay 1.5s)
 local function runAPSpam()
 	task.spawn(function()
 		runCommand("tiny")
@@ -100,12 +100,12 @@ local function runAPSpam()
 		runCommand("rocket")
 		runCommand("balloon")
 
-		task.wait(2.1)
+		task.wait(1.5)
 		runCommand("jail")
 	end)
 end
 
--- LOCAL RAGDOLL (1.45s HOLD)
+-- LOCAL RAGDOLL (1.4s HOLD)
 local function doRagdoll()
 	pcall(function()
 		ReplicatedStorage
@@ -148,7 +148,7 @@ RunService.RenderStepped:Connect(function()
 			if holdingPrompts[prompt]
 				and holdStartTimes[prompt]
 				and not ragdolledThisHold[prompt]
-				and (tick() - holdStartTimes[prompt]) >= 1.45
+				and (tick() - holdStartTimes[prompt]) >= 1.4
 			then
 				doRagdoll()
 				ragdolledThisHold[prompt] = true
