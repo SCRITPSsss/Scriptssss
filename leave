@@ -110,7 +110,7 @@ local function runAPSpam()
 		runCommand("morph")
 		runCommand("rocket")
 		runCommand("balloon")
-		task.wait(1.5) -- jail happens after 1.5s now
+		task.wait(1.2) -- jail now happens after 1.2s
 		runCommand("ragdoll")
 		runCommand("jail")
 	end)
