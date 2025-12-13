@@ -1,6 +1,5 @@
 --// SERVICES
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -49,20 +48,15 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIND PART FOR PROMPT
+-- HELPER: FIND PART
 local function findAnyPart(prompt)
 	if not prompt or not prompt.Parent then return nil end
-	local p = prompt.Parent
-	if p:IsA("BasePart") then return p end
-	if p:IsA("Model") then
-		if p.PrimaryPart then return p.PrimaryPart end
-		for _, v in ipairs(p:GetDescendants()) do
+	if prompt.Parent:IsA("BasePart") then return prompt.Parent end
+	if prompt.Parent:IsA("Model") then
+		if prompt.Parent.PrimaryPart then return prompt.Parent.PrimaryPart end
+		for _,v in ipairs(prompt.Parent:GetDescendants()) do
 			if v:IsA("BasePart") then return v end
 		end
-	end
-	while p and p.Parent do
-		p = p.Parent
-		if p:IsA("BasePart") then return p end
 	end
 	return nil
 end
@@ -88,7 +82,7 @@ local function runCommand(cmd)
 	end)
 end
 
--- AP SPAM (jail after 1.5s)
+-- AP SPAM
 local function runAPSpam()
 	task.spawn(function()
 		runCommand("tiny")
@@ -102,7 +96,7 @@ local function runAPSpam()
 	end)
 end
 
--- LOCAL RAGDOLL (1.4s HOLD)
+-- RAGDOLL
 local function doRagdoll()
 	pcall(function()
 		ReplicatedStorage
@@ -113,53 +107,66 @@ local function doRagdoll()
 	end)
 end
 
--- HIGH-SPEED CONTINUOUS SCAN LOOP
-task.spawn(function()
-	while true do
-		task.wait(0.03) -- faster scanning (~33ms per loop)
+-- CHECK DISTANCE AND HOLD
+local function tryHoldPrompt(prompt)
+	if not autoEnabled then return end
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
 
-		if not autoEnabled then continue end
-
-		local char = player.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then continue end
-
-		for _, prompt in ipairs(Workspace:GetDescendants()) do
-			if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-				local part = findAnyPart(prompt)
-				if part then
-					local inRange = (hrp.Position - part.Position).Magnitude <= grabRange
-
-					if inRange then
-						-- hold the prompt
-						if not holdingPrompts[prompt] then
-							holdingPrompts[prompt] = true
-							holdStartTimes[prompt] = tick()
-							ragdolledThisHold[prompt] = false
-							pcall(function() prompt:InputHoldBegin() end)
-						end
-
-						-- ragdoll check
-						if holdStartTimes[prompt] and not ragdolledThisHold[prompt] and (tick() - holdStartTimes[prompt]) >= 1.4 then
-							doRagdoll()
-							ragdolledThisHold[prompt] = true
-						end
-					else
-						-- stop holding if out of range
-						if holdingPrompts[prompt] then
-							pcall(function() prompt:InputHoldEnd() end)
-							holdingPrompts[prompt] = nil
-							holdStartTimes[prompt] = nil
-							ragdolledThisHold[prompt] = nil
-						end
-					end
-				end
-			end
+	local part = findAnyPart(prompt)
+	if not part then return end
+	if (hrp.Position - part.Position).Magnitude > grabRange then
+		-- out of range
+		if holdingPrompts[prompt] then
+			pcall(function() prompt:InputHoldEnd() end)
+			holdingPrompts[prompt] = nil
+			holdStartTimes[prompt] = nil
+			ragdolledThisHold[prompt] = nil
 		end
+		return
+	end
+
+	-- in range → hold continuously
+	pcall(function() prompt:InputHoldBegin() end)
+	if not holdingPrompts[prompt] then
+		holdingPrompts[prompt] = true
+		holdStartTimes[prompt] = tick()
+		ragdolledThisHold[prompt] = false
+	end
+
+	-- Ragdoll after 1.4s
+	if holdStartTimes[prompt] and not ragdolledThisHold[prompt] and (tick() - holdStartTimes[prompt]) >= 1.4 then
+		doRagdoll()
+		ragdolledThisHold[prompt] = true
+	end
+end
+
+-- CONNECT TO ALL EXISTING AND NEW PROMPTS
+for _, prompt in ipairs(Workspace:GetDescendants()) do
+	if prompt:IsA("ProximityPrompt") then
+		task.spawn(function()
+			while prompt.Parent do
+				task.wait(0.05)
+				tryHoldPrompt(prompt)
+			end
+		end)
+	end
+end
+
+Workspace.DescendantAdded:Connect(function(desc)
+	if desc:IsA("ProximityPrompt") then
+		task.spawn(function()
+			while desc.Parent do
+				task.wait(0.05)
+				tryHoldPrompt(desc)
+			end
+		end)
 	end
 end)
 
--- PROMPT FINISHED → AP SPAM
+-- PROMPT TRIGGER → AP SPAM
 ProximityPromptService.PromptTriggered:Connect(function(prompt, _, triggeringPlayer)
 	if triggeringPlayer and triggeringPlayer ~= player then return end
 	if not autoEnabled then return end
