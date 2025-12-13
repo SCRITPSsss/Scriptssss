@@ -27,7 +27,6 @@ autoBtn.Parent = gui
 -- STATE
 local autoEnabled = false
 local grabRange = 12
-local scanning = true
 local holdingPrompts = {}
 local holdStartTimes = {}
 local ragdolledThisHold = {}
@@ -38,11 +37,9 @@ autoBtn.MouseButton1Click:Connect(function()
 	if autoEnabled then
 		autoBtn.Text = "Grab: ON"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-		scanning = true
 	else
 		autoBtn.Text = "Grab: OFF"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-		scanning = false
 		for prompt in pairs(holdingPrompts) do
 			pcall(function() prompt:InputHoldEnd() end)
 		end
@@ -116,55 +113,46 @@ local function doRagdoll()
 	end)
 end
 
--- OPTIMIZED AUTO-HOLD LOOP
+-- CONTINUOUS SCAN LOOP (ANTI-LAG)
 task.spawn(function()
 	while true do
-		task.wait(0.1) -- small wait to reduce lag
+		task.wait(0.1) -- small delay to reduce lag
+		if not autoEnabled then continue end
 
-		if not autoEnabled or not scanning then
-			task.wait(0.5)
-		else
-			local char = player.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then continue end
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if not hrp then continue end
 
-			local foundPrompt = false
+		for _, prompt in ipairs(Workspace:GetDescendants()) do
+			if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+				local part = findAnyPart(prompt)
+				if part then
+					local inRange = (hrp.Position - part.Position).Magnitude <= grabRange
 
-			for _, prompt in ipairs(Workspace:GetDescendants()) do
-				if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-					local part = findAnyPart(prompt)
-					if part and (hrp.Position - part.Position).Magnitude <= grabRange then
-						-- start holding
+					if inRange then
+						-- hold the prompt
 						if not holdingPrompts[prompt] then
 							holdingPrompts[prompt] = true
 							holdStartTimes[prompt] = tick()
-							ragdolledThisHold[prompt] = nil
+							ragdolledThisHold[prompt] = false
 							pcall(function() prompt:InputHoldBegin() end)
-							foundPrompt = true
 						end
-						break -- stop scanning after finding one prompt
+
+						-- ragdoll check
+						if holdStartTimes[prompt] and not ragdolledThisHold[prompt] and (tick() - holdStartTimes[prompt]) >= 1.4 then
+							doRagdoll()
+							ragdolledThisHold[prompt] = true
+						end
+					else
+						-- stop holding if out of range
+						if holdingPrompts[prompt] then
+							pcall(function() prompt:InputHoldEnd() end)
+							holdingPrompts[prompt] = nil
+							holdStartTimes[prompt] = nil
+							ragdolledThisHold[prompt] = nil
+						end
 					end
 				end
-			end
-
-			-- check holding prompts
-			for prompt in pairs(holdingPrompts) do
-				if not prompt.Parent or not prompt.Enabled then
-					holdingPrompts[prompt] = nil
-					holdStartTimes[prompt] = nil
-					ragdolledThisHold[prompt] = nil
-				else
-					-- ragdoll after 1.4s hold
-					if holdStartTimes[prompt] and not ragdolledThisHold[prompt] and (tick() - holdStartTimes[prompt]) >= 1.4 then
-						doRagdoll()
-						ragdolledThisHold[prompt] = true
-					end
-				end
-			end
-
-			-- if no prompt found, small delay before next scan
-			if not foundPrompt then
-				task.wait(0.3)
 			end
 		end
 	end
