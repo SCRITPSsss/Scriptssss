@@ -1,1 +1,130 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- KICK TOGGLE BUTTON (updated position & size)
+local kickBtn = Instance.new("TextButton")
+kickBtn.Size = UDim2.new(0, 100, 0, 40)
+kickBtn.Position = UDim2.new(1, -110, 0.17, -20)
+kickBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+kickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+kickBtn.Font = Enum.Font.GothamBold
+kickBtn.TextSize = 18
+kickBtn.Text = "Kick: ON"
+kickBtn.Parent = gui
+kickBtn.BorderSizePixel = 0
+
+kickBtn.MouseEnter:Connect(function()
+	kickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+end)
+kickBtn.MouseLeave:Connect(function()
+	if kickBtn.Text == "Kick: ON" then
+		kickBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		kickBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+	end
+end)
+
+-- STATE
+local kickEnabled = true -- Automatically ON
+
+-- Toggle kick
+kickBtn.MouseButton1Click:Connect(function()
+	kickEnabled = not kickEnabled
+	if kickEnabled then
+		kickBtn.Text = "Kick: ON"
+		kickBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		kickBtn.Text = "Kick: OFF"
+		kickBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+	end
+end)
+
+-- ===== BOX DATA =====
+local boxesData = {
+	{Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,0,113.7)},
+	{Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,-0.101,6.7)}
+}
+
+local currentBox = nil
+
+-- Spawn a box
+local function spawnBox(size, position)
+	local box = Instance.new("Part")
+	box.Size = size
+	box.Position = position
+	box.Anchored = true
+	box.CanCollide = false -- noclip
+	box.Transparency = 1   -- invisible
+	box.Parent = Workspace
+	return box
+end
+
+-- Spawn boxes, keep closest, delete others
+local function setupBoxes()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	local spawnedBoxes = {}
+	for _, data in ipairs(boxesData) do
+		table.insert(spawnedBoxes, spawnBox(data.Size, data.Position))
+	end
+
+	-- Determine closest box
+	local closestBox = spawnedBoxes[1]
+	local closestDist = (hrp.Position - spawnedBoxes[1].Position).Magnitude
+	for i=2,#spawnedBoxes do
+		local dist = (hrp.Position - spawnedBoxes[i].Position).Magnitude
+		if dist < closestDist then
+			closestDist = dist
+			closestBox = spawnedBoxes[i]
+		end
+	end
+
+	currentBox = closestBox
+
+	-- Delete other boxes
+	for _, box in ipairs(spawnedBoxes) do
+		if box ~= currentBox then
+			box:Destroy()
+		end
+	end
+end
+
+-- Check if character is inside the active box
+local function isInside(character)
+	if not currentBox then return false end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return false end
+
+	local rel = currentBox.CFrame:PointToObjectSpace(hrp.Position)
+	local half = currentBox.Size / 2
+
+	return math.abs(rel.X) <= half.X
+		and math.abs(rel.Y) <= half.Y
+		and math.abs(rel.Z) <= half.Z
+end
+
+-- Monitor other players for instant kick if enabled
+RunService.Heartbeat:Connect(function()
+	if not currentBox or not kickEnabled then return end
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and isInside(plr.Character) then
+			player:Kick("Another player entered the restricted box.")
+			break
+		end
+	end
+end)
+
+-- Spawn boxes and keep closest automatically
+setupBoxes()
 
