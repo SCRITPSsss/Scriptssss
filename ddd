@@ -2,73 +2,58 @@
 
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
-gui.Parent = player:WaitForChild("PlayerGui")
 gui.Name = "AdminButtonGui"
 gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
 local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 40)  -- SAME SIZE as Leave button
-button.Position = UDim2.new(1, -110, 0.55, -20)
-button.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- RED
+button.Size = UDim2.new(0, 70, 0, 28)
+button.Position = UDim2.new(1, -90, 0.55, 0) -- middle-right, slightly down
+button.AnchorPoint = Vector2.new(0, 0)
+button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+button.Text = "SPAM"
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 button.Font = Enum.Font.GothamBold
-button.TextSize = 18
-button.Text = "AP Spam"
-button.Parent = gui
-button.AutoButtonColor = true
+button.TextSize = 14
 button.BorderSizePixel = 0
-button.ZIndex = 5
-button.Active = true
+button.AutoButtonColor = false
+button.ZIndex = 10
+button.Parent = gui
 
--- Proper red hover
+-- subtle hover
 button.MouseEnter:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
+	button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 end)
+
 button.MouseLeave:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 0, 4)
+	button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 end)
 
 --// COMMAND EXECUTION ---------------------------------------
 
 local function getOtherPlayer()
 	for _, plr in ipairs(game.Players:GetPlayers()) do
-		if plr ~= game.Players.LocalPlayer then
+		if plr ~= player then
 			return plr
 		end
 	end
 	return nil
 end
 
-local function runCommand(commandName)
+local function runCommand(cmd)
 	local target = getOtherPlayer()
-	if not target then
-		warn("No other player found in the game!")
-		return
-	end
-
-	local args = {
-		target,
-		commandName
-	}
+	if not target then return end
 
 	game:GetService("ReplicatedStorage")
 		:WaitForChild("Packages")
 		:WaitForChild("Net")
 		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
-		:FireServer(unpack(args))
+		:FireServer(target, cmd)
 end
 
 button.MouseButton1Click:Connect(function()
-	-- initial commands
 	runCommand("tiny")
-	runCommand("inverse")
-	runCommand("jumpscare")
-	runCommand("morph")
-	runCommand("rocket")
 	runCommand("balloon")
-
-	-- delayed commands
-	task.wait(4.6)
-	runCommand("ragdoll")
-	runCommand("jail")
+	runCommand("rocket")
+	runCommand("inverse")
 end)
