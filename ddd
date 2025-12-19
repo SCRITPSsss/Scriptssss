@@ -1,32 +1,32 @@
---// GUI CREATION --------------------------------------------
+--// SPAM BUTTON ---------------------------------------------
 
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
-gui.Name = "AdminButtonGui"
+gui.Name = "SpamGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 70, 0, 28)
-button.Position = UDim2.new(1, -90, 0.55, 0) -- middle-right, slightly down
-button.AnchorPoint = Vector2.new(0, 0)
-button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-button.Text = "SPAM"
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.GothamBold
-button.TextSize = 14
-button.BorderSizePixel = 0
-button.AutoButtonColor = false
-button.ZIndex = 10
-button.Parent = gui
+local spam = Instance.new("TextButton")
+spam.Size = UDim2.new(0, 90, 0, 45) -- same size as original spam
+spam.AnchorPoint = Vector2.new(1, 0.5)
+spam.Position = UDim2.new(1, -25, 0.5, 0) -- middle-right, slightly down
+spam.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+spam.Text = "SPAM"
+spam.TextColor3 = Color3.fromRGB(255, 255, 255)
+spam.Font = Enum.Font.GothamBold
+spam.TextSize = 16
+spam.BorderSizePixel = 0
+spam.AutoButtonColor = false
+spam.ZIndex = 10
+spam.Parent = gui
 
--- subtle hover
-button.MouseEnter:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+-- hover effect
+spam.MouseEnter:Connect(function()
+	spam.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 end)
 
-button.MouseLeave:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+spam.MouseLeave:Connect(function()
+	spam.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 end)
 
 --// COMMAND EXECUTION ---------------------------------------
@@ -51,7 +51,7 @@ local function runCommand(cmd)
 		:FireServer(target, cmd)
 end
 
-button.MouseButton1Click:Connect(function()
+spam.MouseButton1Click:Connect(function()
 	runCommand("tiny")
 	runCommand("balloon")
 	runCommand("rocket")
