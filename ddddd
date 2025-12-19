@@ -1,32 +1,34 @@
--- Create a simple leave button (middle-right)
+--// BYE BUTTON (same style as SPAM) --------------------------
+
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
+gui.Name = "ByeButtonGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 40)
-button.Position = UDim2.new(1, -110, 0.43, -20) -- middle-right
-button.BackgroundColor3 = Color3.fromRGB(255, 121, 150)
+button.Size = UDim2.new(0, 70, 0, 28)
+button.Position = UDim2.new(1, -90, 0.48, 0) -- middle-right, slightly UP
+button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+button.Text = "BYE"
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 button.Font = Enum.Font.GothamBold
-button.TextSize = 18
-button.Text = "Leave"
-button.Parent = gui
-button.AutoButtonColor = true
+button.TextSize = 14
 button.BorderSizePixel = 0
-button.ZIndex = 5
-button.Active = true
+button.AutoButtonColor = false
+button.ZIndex = 10
+button.Parent = gui
 
--- Hover effect
+-- hover effect (same as SPAM)
 button.MouseEnter:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-end)
-button.MouseLeave:Connect(function()
-	button.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+	button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 end)
 
--- Leave action
+button.MouseLeave:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+end)
+
+-- leave action
 button.MouseButton1Click:Connect(function()
-	player:Kick("You have left the game.")
+	player:Kick("BYE 👋")
 end)
