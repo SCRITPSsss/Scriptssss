@@ -18,7 +18,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local autoBtn = Instance.new("TextButton")
 autoBtn.Size = UDim2.new(0, 100, 0, 40)
 autoBtn.Position = UDim2.new(0.5, 0, 0, 10) -- top-middle
-autoBtn.AnchorPoint = Vector2.new(0.5, 0) -- center X
+autoBtn.AnchorPoint = Vector2.new(0.5, 0)
 autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 autoBtn.Font = Enum.Font.GothamBold
@@ -59,7 +59,7 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Find any part associated with prompt
+-- find part for prompt
 local function findAnyPart(obj)
 	if obj.Parent:IsA("BasePart") then return obj.Parent end
 	local model = obj.Parent
@@ -96,7 +96,7 @@ local function runCommand(commandName, target)
 		:FireServer(unpack(args))
 end
 
--- MAIN LOOP: auto-hold
+-- MAIN LOOP: auto-hold (only active if Grab is ON)
 RunService.RenderStepped:Connect(function()
 	if not autoEnabled then return end
 
@@ -125,10 +125,10 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- SELF-RAGDOLL AFTER 1.4 SEC HOLD (local player only)
+-- SELF-RAGDOLL AFTER 1.4 SEC HOLD (local player only, only if Grab ON)
 local function doRagdoll()
-	if player.Character then
-		runCommand("ragdoll", player) -- only local player
+	if player.Character and autoEnabled then
+		runCommand("ragdoll", player)
 	end
 end
 
@@ -142,8 +142,9 @@ ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
 	end)
 end)
 
--- When holding ENDS successfully → immediately run commands on other player
+-- When holding ENDS successfully → immediately run commands on other player (only if Grab ON)
 ProximityPromptService.PromptTriggered:Connect(function(prompt)
+	if not autoEnabled then return end
 	ragdollTimers[prompt] = nil
 	local target = getOtherPlayer()
 	if target then
@@ -155,5 +156,6 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 end)
 
 ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
+	if not autoEnabled then return end
 	ragdollTimers[prompt] = nil
 end)
