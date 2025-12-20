@@ -1,0 +1,159 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+--==================--
+-- AUTO GRAB BUTTON (TOP MIDDLE)
+--==================--
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(0, 100, 0, 40)
+autoBtn.Position = UDim2.new(0.5, 0, 0, 10) -- top-middle
+autoBtn.AnchorPoint = Vector2.new(0.5, 0) -- center X
+autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextSize = 18
+autoBtn.Text = "Grab: OFF"
+autoBtn.Parent = gui
+autoBtn.BorderSizePixel = 0
+
+autoBtn.MouseEnter:Connect(function()
+	autoBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+end)
+autoBtn.MouseLeave:Connect(function()
+	if autoBtn.Text == "Grab: ON" then
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	end
+end)
+
+local autoEnabled = false
+local grabRange = 12
+local holdingPrompts = {}
+local ragdollTimers = {}
+
+autoBtn.MouseButton1Click:Connect(function()
+	autoEnabled = not autoEnabled
+	if autoEnabled then
+		autoBtn.Text = "Grab: ON"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		autoBtn.Text = "Grab: OFF"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		for prompt,_ in pairs(holdingPrompts) do
+			pcall(function() prompt:InputHoldEnd() end)
+		end
+		holdingPrompts = {}
+		ragdollTimers = {}
+	end
+end)
+
+-- Find any part associated with prompt
+local function findAnyPart(obj)
+	if obj.Parent:IsA("BasePart") then return obj.Parent end
+	local model = obj.Parent
+	if model:IsA("Model") then
+		if model.PrimaryPart then return model.PrimaryPart end
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then return d end
+		end
+	end
+	local p = obj
+	while p.Parent do
+		p = p.Parent
+		if p:IsA("BasePart") then return p end
+	end
+	return nil
+end
+
+-- RUN COMMANDS
+local function getOtherPlayer()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			return plr
+		end
+	end
+	return nil
+end
+
+local function runCommand(commandName, target)
+	if not target then return end
+	local args = {target, commandName}
+	ReplicatedStorage:WaitForChild("Packages")
+		:WaitForChild("Net")
+		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+		:FireServer(unpack(args))
+end
+
+-- MAIN LOOP: auto-hold
+RunService.RenderStepped:Connect(function()
+	if not autoEnabled then return end
+
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	for _, prompt in ipairs(Workspace:GetDescendants()) do
+		if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+			local part = findAnyPart(prompt)
+			if part then
+				local dist = (hrp.Position - part.Position).Magnitude
+				if dist <= grabRange then
+					pcall(function() prompt:InputHoldBegin() end)
+					holdingPrompts[prompt] = true
+				else
+					if holdingPrompts[prompt] then
+						pcall(function() prompt:InputHoldEnd() end)
+						holdingPrompts[prompt] = nil
+						ragdollTimers[prompt] = nil
+					end
+				end
+			end
+		end
+	end
+end)
+
+-- SELF-RAGDOLL AFTER 1.4 SEC HOLD (local player only)
+local function doRagdoll()
+	if player.Character then
+		runCommand("ragdoll", player) -- only local player
+	end
+end
+
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+	if not autoEnabled then return end
+	ragdollTimers[prompt] = true
+	task.delay(1.4, function()
+		if ragdollTimers[prompt] and autoEnabled then
+			doRagdoll()
+		end
+	end)
+end)
+
+-- When holding ENDS successfully → immediately run commands on other player
+ProximityPromptService.PromptTriggered:Connect(function(prompt)
+	ragdollTimers[prompt] = nil
+	local target = getOtherPlayer()
+	if target then
+		runCommand("tiny", target)
+		runCommand("balloon", target)
+		runCommand("rocket", target)
+		runCommand("inverse", target)
+	end
+end)
+
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
+	ragdollTimers[prompt] = nil
+end)
