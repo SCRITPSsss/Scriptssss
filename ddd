@@ -1,15 +1,20 @@
---// SPAM BUTTON ---------------------------------------------
+--// SERVICES ------------------------------------------------
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local player = game.Players.LocalPlayer
+local player = Players.LocalPlayer
+
+--// GUI -----------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "SpamGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local spam = Instance.new("TextButton")
-spam.Size = UDim2.new(0, 90, 0, 45) -- same size as original spam
+spam.Size = UDim2.new(0, 90, 0, 45)
 spam.AnchorPoint = Vector2.new(1, 0.5)
-spam.Position = UDim2.new(1, -25, 0.5, 0) -- middle-right, slightly down
+spam.Position = UDim2.new(1, -25, 0.5, 0)
 spam.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 spam.Text = "SPAM"
 spam.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -29,10 +34,10 @@ spam.MouseLeave:Connect(function()
 	spam.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 end)
 
---// COMMAND EXECUTION ---------------------------------------
+--// COMMAND LOGIC -------------------------------------------
 
 local function getOtherPlayer()
-	for _, plr in ipairs(game.Players:GetPlayers()) do
+	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= player then
 			return plr
 		end
@@ -44,16 +49,28 @@ local function runCommand(cmd)
 	local target = getOtherPlayer()
 	if not target then return end
 
-	game:GetService("ReplicatedStorage")
+	ReplicatedStorage
 		:WaitForChild("Packages")
 		:WaitForChild("Net")
 		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
 		:FireServer(target, cmd)
 end
 
-spam.MouseButton1Click:Connect(function()
+local function doSpam()
 	runCommand("tiny")
 	runCommand("balloon")
 	runCommand("rocket")
 	runCommand("inverse")
+end
+
+-- button click
+spam.MouseButton1Click:Connect(doSpam)
+
+-- R / r keybind
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end -- ignores typing in chat/textboxes
+
+	if input.KeyCode == Enum.KeyCode.R then
+		doSpam()
+	end
 end)
