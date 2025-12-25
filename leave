@@ -44,7 +44,7 @@ byeButton.MouseButton1Click:Connect(function()
 	player:Kick("BYE 👋")
 end)
 
--- TOGGLE (FORCED OFF & DISABLED)
+-- TOGGLE (STARTS OFF, CLICKABLE)
 local balloonToggle = Instance.new("TextButton")
 balloonToggle.Size = UDim2.new(0, 50, 0, 20)
 balloonToggle.Position = UDim2.new(0.5, 0, 0, -20)
@@ -56,13 +56,23 @@ balloonToggle.TextSize = 14
 balloonToggle.Text = "OFF"
 balloonToggle.BorderSizePixel = 0
 balloonToggle.ZIndex = 20
-balloonToggle.AutoButtonColor = false
-balloonToggle.Active = false
-balloonToggle.Selectable = false
 balloonToggle.Parent = container
 
--- HARD DISABLED
+-- STATE (START OFF)
 local balloonEnabled = false
+
+-- TOGGLE LOGIC (ON / OFF)
+balloonToggle.MouseButton1Click:Connect(function()
+	balloonEnabled = not balloonEnabled
+
+	if balloonEnabled then
+		balloonToggle.Text = "ON"
+		balloonToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		balloonToggle.Text = "OFF"
+		balloonToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+	end
+end)
 
 --// BOX DATA
 local boxesData = {
@@ -131,7 +141,7 @@ local function runBalloon(target)
 		:FireServer(target, "balloon")
 end
 
--- AUTO LOOP (WILL NEVER RUN)
+-- AUTO LOOP (ONLY RUNS WHEN ON)
 RunService.Heartbeat:Connect(function()
 	if not balloonEnabled or not activeBox then return end
 
