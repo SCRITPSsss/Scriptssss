@@ -33,119 +33,113 @@ byeButton.ZIndex = 10
 byeButton.Parent = container
 
 byeButton.MouseEnter:Connect(function()
-    byeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	byeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 end)
+
 byeButton.MouseLeave:Connect(function()
-    byeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	byeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 end)
 
 byeButton.MouseButton1Click:Connect(function()
-    player:Kick("BYE 👋")
+	player:Kick("BYE 👋")
 end)
 
--- Toggle (AUTO ON)
+-- TOGGLE (FORCED OFF & DISABLED)
 local balloonToggle = Instance.new("TextButton")
 balloonToggle.Size = UDim2.new(0, 50, 0, 20)
 balloonToggle.Position = UDim2.new(0.5, 0, 0, -20)
 balloonToggle.AnchorPoint = Vector2.new(0.5, 0)
-balloonToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+balloonToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
 balloonToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 balloonToggle.Font = Enum.Font.GothamBold
 balloonToggle.TextSize = 14
-balloonToggle.Text = "ON"
+balloonToggle.Text = "OFF"
 balloonToggle.BorderSizePixel = 0
 balloonToggle.ZIndex = 20
+balloonToggle.AutoButtonColor = false
+balloonToggle.Active = false
+balloonToggle.Selectable = false
 balloonToggle.Parent = container
 
--- AUTO ENABLED
-local balloonEnabled = true
-
-balloonToggle.MouseButton1Click:Connect(function()
-    balloonEnabled = not balloonEnabled
-    if balloonEnabled then
-        balloonToggle.Text = "ON"
-        balloonToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-    else
-        balloonToggle.Text = "OFF"
-        balloonToggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-    end
-end)
+-- HARD DISABLED
+local balloonEnabled = false
 
 --// BOX DATA
 local boxesData = {
-    {Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,0,113.7)},
-    {Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,-0.101,6.7)}
+	{Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,0,113.7)},
+	{Size = Vector3.new(47,16,49), Position = Vector3.new(-314.5,-0.101,6.7)}
 }
 
 local activeBox
 
 local function spawnBox(size, position)
-    local box = Instance.new("Part")
-    box.Size = size
-    box.Position = position
-    box.Anchored = true
-    box.CanCollide = false
-    box.Transparency = 1
-    box.Parent = Workspace
-    return box
+	local box = Instance.new("Part")
+	box.Size = size
+	box.Position = position
+	box.Anchored = true
+	box.CanCollide = false
+	box.Transparency = 1
+	box.Parent = Workspace
+	return box
 end
 
 local function setupBoxes()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
 
-    local spawned = {}
-    for _, data in ipairs(boxesData) do
-        table.insert(spawned, spawnBox(data.Size, data.Position))
-    end
+	local spawned = {}
+	for _, data in ipairs(boxesData) do
+		table.insert(spawned, spawnBox(data.Size, data.Position))
+	end
 
-    activeBox = spawned[1]
-    local closest = (hrp.Position - activeBox.Position).Magnitude
+	activeBox = spawned[1]
+	local closest = (hrp.Position - activeBox.Position).Magnitude
 
-    for i = 2, #spawned do
-        local dist = (hrp.Position - spawned[i].Position).Magnitude
-        if dist < closest then
-            closest = dist
-            activeBox = spawned[i]
-        end
-    end
+	for i = 2, #spawned do
+		local dist = (hrp.Position - spawned[i].Position).Magnitude
+		if dist < closest then
+			closest = dist
+			activeBox = spawned[i]
+		end
+	end
 
-    for _, box in ipairs(spawned) do
-        if box ~= activeBox then
-            box:Destroy()
-        end
-    end
+	for _, box in ipairs(spawned) do
+		if box ~= activeBox then
+			box:Destroy()
+		end
+	end
 end
 
 local function isInside(character)
-    if not activeBox then return false end
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
+	if not activeBox then return false end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return false end
 
-    local rel = activeBox.CFrame:PointToObjectSpace(hrp.Position)
-    local half = activeBox.Size / 2
+	local rel = activeBox.CFrame:PointToObjectSpace(hrp.Position)
+	local half = activeBox.Size / 2
 
-    return math.abs(rel.X) <= half.X
-        and math.abs(rel.Y) <= half.Y
-        and math.abs(rel.Z) <= half.Z
+	return math.abs(rel.X) <= half.X
+		and math.abs(rel.Y) <= half.Y
+		and math.abs(rel.Z) <= half.Z
 end
 
 local function runBalloon(target)
-    ReplicatedStorage:WaitForChild("Packages")
-        :WaitForChild("Net")
-        :WaitForChild("RE/AdminPanelService/ExecuteCommand")
-        :FireServer(target, "balloon")
+	ReplicatedStorage
+		:WaitForChild("Packages")
+		:WaitForChild("Net")
+		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
+		:FireServer(target, "balloon")
 end
 
--- AUTO RUN LOOP
+-- AUTO LOOP (WILL NEVER RUN)
 RunService.Heartbeat:Connect(function()
-    if not balloonEnabled or not activeBox then return end
+	if not balloonEnabled or not activeBox then return end
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and isInside(plr.Character) then
-            runBalloon(plr)
-        end
-    end
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and isInside(plr.Character) then
+			runBalloon(plr)
+		end
+	end
 end)
 
 setupBoxes()
