@@ -66,11 +66,11 @@ end
 -- button click
 spam.MouseButton1Click:Connect(doSpam)
 
--- R / r keybind
+-- ; keybind
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end -- ignores typing in chat/textboxes
+	if gameProcessed then return end -- ignore chat/textbox typing
 
-	if input.KeyCode == Enum.KeyCode.R then
+	if input.KeyCode == Enum.KeyCode.Semicolon then
 		doSpam()
 	end
 end)
