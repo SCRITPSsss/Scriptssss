@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
@@ -20,7 +21,7 @@ container.AnchorPoint = Vector2.new(1, 0.5)
 container.BackgroundTransparency = 1
 container.Parent = gui
 
--- BYE button
+-- BYE button (still exists, optional)
 local byeButton = Instance.new("TextButton")
 byeButton.Size = UDim2.new(0, 90, 0, 45)
 byeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -32,19 +33,19 @@ byeButton.BorderSizePixel = 0
 byeButton.ZIndex = 10
 byeButton.Parent = container
 
-byeButton.MouseEnter:Connect(function()
-	byeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-end)
-
-byeButton.MouseLeave:Connect(function()
-	byeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-end)
-
 byeButton.MouseButton1Click:Connect(function()
 	player:Kick("BYE 👋")
 end)
 
--- TOGGLE (STARTS OFF, CLICKABLE)
+--// Z KEY = INSTANT KICK (NO CHAT / UI)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.Z then
+		player:Kick("BYE 👋")
+	end
+end)
+
+-- TOGGLE (STARTS OFF)
 local balloonToggle = Instance.new("TextButton")
 balloonToggle.Size = UDim2.new(0, 50, 0, 20)
 balloonToggle.Position = UDim2.new(0.5, 0, 0, -20)
@@ -58,13 +59,10 @@ balloonToggle.BorderSizePixel = 0
 balloonToggle.ZIndex = 20
 balloonToggle.Parent = container
 
--- STATE (START OFF)
 local balloonEnabled = false
 
--- TOGGLE LOGIC (ON / OFF)
 balloonToggle.MouseButton1Click:Connect(function()
 	balloonEnabled = not balloonEnabled
-
 	if balloonEnabled then
 		balloonToggle.Text = "ON"
 		balloonToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
@@ -141,7 +139,7 @@ local function runBalloon(target)
 		:FireServer(target, "balloon")
 end
 
--- AUTO LOOP (ONLY RUNS WHEN ON)
+-- AUTO LOOP
 RunService.Heartbeat:Connect(function()
 	if not balloonEnabled or not activeBox then return end
 
