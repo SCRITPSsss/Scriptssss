@@ -35,7 +35,7 @@ spam.MouseLeave:Connect(function()
 end)
 
 --// COMMAND LOGIC -------------------------------------------
-
+-- Pick a target player (first player that isn’t you)
 local function getOtherPlayer()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= player then
@@ -45,17 +45,21 @@ local function getOtherPlayer()
 	return nil
 end
 
+-- Admin remote (same as punish the stealer)
+local adminRemote = ReplicatedStorage:WaitForChild("Packages")
+                               :WaitForChild("Net")
+                               :WaitForChild("RE/352aad58-c786-4998-886b-3e4fa390721e")
+
+-- Send a command to a target using the admin remote
 local function runCommand(cmd)
 	local target = getOtherPlayer()
 	if not target then return end
 
-	ReplicatedStorage
-		:WaitForChild("Packages")
-		:WaitForChild("Net")
-		:WaitForChild("RE/AdminPanelService/ExecuteCommand")
-		:FireServer(target, cmd)
+	local args = { "78a772b6-9e1c-4827-ab8b-04a07838f298", target, cmd }
+	adminRemote:FireServer(unpack(args))
 end
 
+-- Spam multiple commands
 local function doSpam()
 	runCommand("tiny")
 	runCommand("balloon")
@@ -63,7 +67,7 @@ local function doSpam()
 	runCommand("inverse")
 end
 
--- button click
+-- Button click
 spam.MouseButton1Click:Connect(doSpam)
 
 -- ; keybind
