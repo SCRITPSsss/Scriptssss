@@ -1,0 +1,371 @@
+-- Full all-in-one executor script
+(function()
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local HttpService = game:GetService("HttpService")
+    local player = Players.LocalPlayer
+
+    -- ---------- WilliamMonster Locations & Tracker ----------
+    local locations = {
+        Kittyland = {
+            Water = {x=149.770, y=229.998, z=2015.356},
+            Bedroom = {x=119.347, y=229.923, z=1954.290},
+            ["Stairs near water"] = {x=180.155, y=230.033, z=2011.161},
+            Food = {x=154.010, y=210.423, z=2068.236},
+            Dumpster = {x=124.705, y=192.627, z=1983.469},
+            ["Stairs near bedroom"] = {x=66.609, y=219.473, z=1992.782},
+            ESCAPE = {x=162.043, y=192.423, z=2024.334},
+            Basement = {x=132.133, y=192.423, z=2016.950}
+        }
+    }
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "WilliamTopBar"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+
+    local nameBox = Instance.new("TextBox")
+    nameBox.Size = UDim2.new(0,300,0,50)
+    nameBox.Position = UDim2.new(0.5,-150,0,10)
+    nameBox.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    nameBox.BackgroundTransparency = 0.5
+    nameBox.TextColor3 = Color3.fromRGB(255,255,255)
+    nameBox.TextScaled = true
+    nameBox.Text = "WilliamMonster location: Unknown"
+    nameBox.ClearTextOnFocus = false
+    nameBox.TextEditable = false
+    nameBox.Parent = screenGui
+
+    local function distance(p1,p2) return (p1-p2).Magnitude end
+
+    local function getWilliamPart()
+        local mapFolder = workspace:WaitForChild("Map")
+        local catsFolder = mapFolder:WaitForChild("Cats")
+        local william = catsFolder:WaitForChild("WilliamMonster")
+        local adornee = william:FindFirstChild("HumanoidRootPart")
+                        or william.PrimaryPart
+                        or william:FindFirstChildWhichIsA("BasePart")
+        return william, adornee
+    end
+
+    -- Tracker loop
+    RunService.RenderStepped:Connect(function()
+        local _, adornee = getWilliamPart()
+        if adornee and adornee:IsA("BasePart") then
+            local wPos = adornee.Position
+            local closestName = "Unknown"
+            local closestDist = math.huge
+            for locName, locPos in pairs(locations.Kittyland) do
+                local locVector = Vector3.new(locPos.x, locPos.y, locPos.z)
+                local dist = distance(wPos, locVector)
+                if dist < closestDist then
+                    closestDist = dist
+                    closestName = locName
+                end
+            end
+            nameBox.Text = "WilliamMonster is near: "..closestName.." ("..math.floor(closestDist).." studs)"
+        else
+            nameBox.Text = "WilliamMonster not found!"
+        end
+    end)
+
+    -- ---------- Teleport GUI & Configs ----------
+    local configFile = "TeleportConfigs.json"
+    local savedConfigs = {}
+    local savedPositions = {}
+    if isfile and isfile(configFile) then
+        local content = readfile(configFile)
+        savedConfigs = HttpService:JSONDecode(content)
+    end
+
+    local function createPositionButton(frame,name,position)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1,0,0,30)
+        button.BackgroundColor3 = Color3.fromRGB(70,70,70)
+        button.TextColor3 = Color3.fromRGB(255,255,255)
+        button.Text = name
+        button.Parent = frame
+
+        button.MouseButton1Click:Connect(function()
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local safeY = position.Y + (hrp.Size.Y/2)
+                hrp.CFrame = CFrame.new(position.X, safeY, position.Z)
+            end
+        end)
+
+        -- Right-click rename
+        button.MouseButton2Click:Connect(function()
+            local popup = Instance.new("Frame")
+            popup.Size = UDim2.new(0,200,0,60)
+            popup.Position = UDim2.new(0.5,-100,0.5,-30)
+            popup.BackgroundColor3 = Color3.fromRGB(50,50,50)
+            popup.Active = true
+            popup.Parent = frame.Parent
+
+            local textbox = Instance.new("TextBox")
+            textbox.Size = UDim2.new(1,-10,0,30)
+            textbox.Position = UDim2.new(0,5,0,5)
+            textbox.Text = name
+            textbox.TextColor3 = Color3.fromRGB(255,255,255)
+            textbox.BackgroundColor3 = Color3.fromRGB(70,70,70)
+            textbox.ClearTextOnFocus = false
+            textbox.Parent = popup
+
+            local confirm = Instance.new("TextButton")
+            confirm.Size = UDim2.new(1,-10,0,20)
+            confirm.Position = UDim2.new(0,5,0,35)
+            confirm.Text = "Confirm"
+            confirm.BackgroundColor3 = Color3.fromRGB(0,170,255)
+            confirm.TextColor3 = Color3.fromRGB(255,255,255)
+            confirm.Active = true
+            confirm.Parent = popup
+
+            confirm.MouseButton1Click:Connect(function()
+                local newName = textbox.Text
+                if newName ~= "" then
+                    savedPositions[newName] = savedPositions[name]
+                    savedPositions[name] = nil
+                    button.Text = newName
+                end
+                popup:Destroy()
+            end)
+        end)
+    end
+
+    local function createGUI()
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "TeleportGUI"
+        gui.Parent = game:GetService("CoreGui")
+
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0,350,0,500)
+        frame.Position = UDim2.new(0,20,0,50)
+        frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        frame.BorderSizePixel = 0
+        frame.Active = true
+        frame.Draggable = true
+        frame.Parent = gui
+
+        local UIListLayout = Instance.new("UIListLayout")
+        UIListLayout.Padding = UDim.new(0,5)
+        UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        UIListLayout.Parent = frame
+
+        -- Toggle Button
+        local toggleButton = Instance.new("TextButton")
+        toggleButton.Size = UDim2.new(0,300,0,30)
+        toggleButton.Position = UDim2.new(0,20,0,20)
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0,170,255)
+        toggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+        toggleButton.Text = "Toggle Teleport GUI"
+        toggleButton.Parent = gui
+        toggleButton.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible end)
+
+        -- Save current position
+        local saveButton = Instance.new("TextButton")
+        saveButton.Size = UDim2.new(1,0,0,30)
+        saveButton.BackgroundColor3 = Color3.fromRGB(0,170,255)
+        saveButton.TextColor3 = Color3.fromRGB(255,255,255)
+        saveButton.Text = "Save Current Position"
+        saveButton.Parent = frame
+        saveButton.MouseButton1Click:Connect(function()
+            local posName = "Pos"..(#savedPositions+1)
+            local playerPos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position
+            if playerPos then
+                savedPositions[posName] = playerPos
+                createPositionButton(frame,posName,playerPos)
+            end
+        end)
+
+        -- Save Config button
+        local saveConfigButton = Instance.new("TextButton")
+        saveConfigButton.Size = UDim2.new(1,0,0,30)
+        saveConfigButton.BackgroundColor3 = Color3.fromRGB(0,200,0)
+        saveConfigButton.TextColor3 = Color3.fromRGB(255,255,255)
+        saveConfigButton.Text = "Save Config"
+        saveConfigButton.Parent = frame
+        saveConfigButton.MouseButton1Click:Connect(function()
+            local popup = Instance.new("Frame")
+            popup.Size = UDim2.new(0,200,0,60)
+            popup.Position = UDim2.new(0.5,-100,0.5,-30)
+            popup.BackgroundColor3 = Color3.fromRGB(50,50,50)
+            popup.Active = true
+            popup.Parent = gui
+
+            local textbox = Instance.new("TextBox")
+            textbox.Size = UDim2.new(1,-10,0,30)
+            textbox.Position = UDim2.new(0,5,0,5)
+            textbox.Text = "NewConfig"
+            textbox.TextColor3 = Color3.fromRGB(255,255,255)
+            textbox.BackgroundColor3 = Color3.fromRGB(70,70,70)
+            textbox.ClearTextOnFocus = false
+            textbox.Parent = popup
+
+            local confirm = Instance.new("TextButton")
+            confirm.Size = UDim2.new(1,-10,0,20)
+            confirm.Position = UDim2.new(0,5,0,35)
+            confirm.Text = "Confirm"
+            confirm.BackgroundColor3 = Color3.fromRGB(0,170,255)
+            confirm.TextColor3 = Color3.fromRGB(255,255,255)
+            confirm.Active = true
+            confirm.Parent = popup
+
+            confirm.MouseButton1Click:Connect(function()
+                local configName = textbox.Text
+                if configName ~= "" then
+                    savedConfigs[configName] = {}
+                    for k,v in pairs(savedPositions) do
+                        savedConfigs[configName][k] = {x=v.X,y=v.Y,z=v.Z}
+                    end
+                    if writefile then
+                        writefile(configFile,HttpService:JSONEncode(savedConfigs))
+                        print("Saved Config: "..configName)
+                    end
+                end
+                popup:Destroy()
+            end)
+        end)
+
+        -- Load/Delete Buttons
+        local function createLoadButtons(frame)
+            for _,child in pairs(frame:GetChildren()) do
+                if child:IsA("Frame") and child.Name:sub(1,5) == "CFG: " then
+                    child:Destroy()
+                end
+            end
+            for configName,_ in pairs(savedConfigs) do
+                local cfgFrame = Instance.new("Frame")
+                cfgFrame.Size = UDim2.new(1,0,0,30)
+                cfgFrame.BackgroundTransparency = 1
+                cfgFrame.Parent = frame
+                cfgFrame.Name = "CFG: "..configName
+
+                local loadBtn = Instance.new("TextButton")
+                loadBtn.Size = UDim2.new(0.7,0,1,0)
+                loadBtn.Position = UDim2.new(0,0,0,0)
+                loadBtn.Text = "Load: "..configName
+                loadBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+                loadBtn.TextColor3 = Color3.fromRGB(255,255,255)
+                loadBtn.Parent = cfgFrame
+
+                local delBtn = Instance.new("TextButton")
+                delBtn.Size = UDim2.new(0.3,0,1,0)
+                delBtn.Position = UDim2.new(0.7,0,0,0)
+                delBtn.Text = "Delete"
+                delBtn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+                delBtn.TextColor3 = Color3.fromRGB(255,255,255)
+                delBtn.Parent = cfgFrame
+
+                loadBtn.MouseButton1Click:Connect(function()
+                    local data = savedConfigs[configName]
+                    if data then
+                        for _,child in pairs(frame:GetChildren()) do
+                            if child:IsA("TextButton") and child ~= saveButton and child ~= saveConfigButton then
+                                child:Destroy()
+                            end
+                        end
+                        savedPositions = {}
+                        for k,v in pairs(data) do
+                            local pos = Vector3.new(v.x,v.y,v.z)
+                            savedPositions[k] = pos
+                            createPositionButton(frame,k,pos)
+                        end
+                        print("Loaded Config: "..configName)
+                    end
+                end)
+
+                delBtn.MouseButton1Click:Connect(function()
+                    savedConfigs[configName] = nil
+                    if writefile then
+                        writefile(configFile,HttpService:JSONEncode(savedConfigs))
+                    end
+                    createLoadButtons(frame)
+                end)
+            end
+        end
+
+        createLoadButtons(frame)
+    end
+
+    -- ---------- Show Config Selector First ----------
+    local function showConfigSelector()
+        if next(savedConfigs) == nil then
+            createGUI()
+            return
+        end
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "ConfigSelector"
+        gui.Parent = game:GetService("CoreGui")
+
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0,250,0,50 + #savedConfigs*35)
+        frame.Position = UDim2.new(0.5,-125,0.5,-(#savedConfigs*17))
+        frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        frame.BorderSizePixel = 0
+        frame.Active = true
+        frame.Parent = gui
+
+        local UIListLayout = Instance.new("UIListLayout")
+        UIListLayout.Padding = UDim.new(0,5)
+        UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        UIListLayout.Parent = frame
+
+        for configName,_ in pairs(savedConfigs) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1,0,0,30)
+            btn.Text = "Load: "..configName
+            btn.BackgroundColor3 = Color3.fromRGB(0,170,255)
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.Parent = frame
+
+            btn.MouseButton1Click:Connect(function()
+                local data = savedConfigs[configName]
+                if data then
+                    for k,v in pairs(data) do
+                        savedPositions[k] = Vector3.new(v.x,v.y,v.z)
+                    end
+                end
+                gui:Destroy()
+                createGUI()
+            end)
+        end
+
+        local skipBtn = Instance.new("TextButton")
+        skipBtn.Size = UDim2.new(1,0,0,30)
+        skipBtn.Text = "Skip Loading"
+        skipBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        skipBtn.TextColor3 = Color3.fromRGB(255,255,255)
+        skipBtn.Parent = frame
+        skipBtn.MouseButton1Click:Connect(function()
+            gui:Destroy()
+            createGUI()
+        end)
+    end
+
+    showConfigSelector()
+
+    -- ---------- Filled Box ESP ----------
+    local function applyBoxESP()
+        local william, adornee = getWilliamPart()
+        if not william or not adornee then return end
+        local old = william:FindFirstChild("BoxESP")
+        if old then old:Destroy() end
+        local box = Instance.new("BoxHandleAdornment")
+        box.Name = "BoxESP"
+        box.Adornee = adornee
+        box.Parent = william
+        box.Size = Vector3.new(5,5,5)
+        box.Color3 = Color3.fromRGB(255,0,0)
+        box.Transparency = 0.4
+        box.AlwaysOnTop = true
+        box.ZIndex = 10
+    end
+
+    applyBoxESP()
+    workspace.Map.Cats.ChildAdded:Connect(function(c)
+        if c.Name=="WilliamMonster" then task.wait(0.1) applyBoxESP() end
+    end)
+end)()
