@@ -1,0 +1,37 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "PassButtonGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Button
+local passButton = Instance.new("TextButton")
+passButton.Size = UDim2.new(0, 90, 0, 45)
+passButton.Position = UDim2.new(1, -25, 0.3, 0) -- original position
+passButton.AnchorPoint = Vector2.new(1, 0.5)
+passButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+passButton.Text = "PASS"
+passButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+passButton.Font = Enum.Font.GothamBold
+passButton.TextSize = 16
+passButton.BorderSizePixel = 0
+passButton.Parent = gui
+
+-- Button click fires the remote
+passButton.MouseButton1Click:Connect(function()
+	local targetPlayer = Players:FindFirstChild("Mia_Z3ro2002")
+	if targetPlayer and targetPlayer.Character then
+		local args = { targetPlayer.Character }
+		local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Pass")
+		remote:FireServer(unpack(args))
+		print("Remote fired for Mia_Z3ro2002!")
+	else
+		print("Target player not found or has no character")
+	end
+end)
