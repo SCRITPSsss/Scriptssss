@@ -1,0 +1,13 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+--// X KEY = INSTANT KICK (NO GUI)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.Z then
+		player:Kick("BYE 👋")
+	end
+end)
