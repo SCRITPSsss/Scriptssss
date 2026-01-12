@@ -1,0 +1,81 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local UseItem = ReplicatedStorage:WaitForChild("Packages")
+	:WaitForChild("Net")
+	:WaitForChild("RE/UseItem")
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local btn = Instance.new("TextButton", gui)
+btn.Size = UDim2.new(0,150,0,45)
+btn.Position = UDim2.new(0,20,0,20)
+btn.Text = "Shoot"
+btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+btn.TextColor3 = Color3.new(1,1,1)
+
+-- Find nearest
+local function getNearest()
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local nearest, dist
+	for _,plr in pairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+			local d = (plr.Character.HumanoidRootPart.Position-hrp.Position).Magnitude
+			if not dist or d < dist then
+				dist = d
+				nearest = plr
+			end
+		end
+	end
+	return nearest
+end
+
+-- Pre-equip (runs once)
+local function preEquip()
+	local char = player.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+
+	local tool = char:FindFirstChild("Paintball Gun")
+		or player.Backpack:FindFirstChild("Paintball Gun")
+
+	if tool then
+		hum:EquipTool(tool)
+	end
+end
+
+-- Equip immediately on spawn
+player.CharacterAdded:Connect(preEquip)
+
+-- Function to shoot nearest player
+local function shootNearest()
+	preEquip() -- makes sure gun is out
+
+	local target = getNearest()
+	if not target then return end
+
+	local pos = target.Character.HumanoidRootPart.Position
+
+	-- INSTANT FIRE (no waits)
+	UseItem:FireServer(pos)
+end
+
+-- CLICK = ZERO DELAY SHOT
+btn.MouseButton1Click:Connect(shootNearest)
+
+-- SEMICOLON KEY = shoot as well
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.Semicolon then
+		shootNearest()
+	end
+end)
