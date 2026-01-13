@@ -2,24 +2,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local UseItem = ReplicatedStorage:WaitForChild("Packages")
     :WaitForChild("Net")
     :WaitForChild("RE/UseItem")
-
--- GUI
-local gui = Instance.new("ScreenGui")
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
-
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 150, 0, 45)
-btn.Position = UDim2.new(0, 20, 0, 20)
-btn.Text = "Shoot"
-btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.Parent = gui
 
 -- Find nearest player
 local function getNearest()
@@ -40,7 +28,7 @@ local function getNearest()
     return nearest
 end
 
--- Equip the gun if not equipped
+-- Equip gun
 local function preEquip()
     local char = player.Character
     if not char then return end
@@ -55,7 +43,7 @@ end
 
 player.CharacterAdded:Connect(preEquip)
 
--- Shoot nearest player instantly
+-- Shoot nearest
 local function shootNearest()
     preEquip()
     local target = getNearest()
@@ -64,17 +52,23 @@ local function shootNearest()
     UseItem:FireServer(pos)
 end
 
--- Spam shooting while button is held
+-- Hold ; to spam
 local shooting = false
 
-btn.MouseButton1Down:Connect(function()
-    shooting = true
-end)
-btn.MouseButton1Up:Connect(function()
-    shooting = false
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Semicolon then
+        shooting = true
+    end
 end)
 
--- Fire every frame while holding
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Semicolon then
+        shooting = false
+    end
+end)
+
+-- Fire loop
 RunService.Heartbeat:Connect(function()
     if shooting then
         shootNearest()
