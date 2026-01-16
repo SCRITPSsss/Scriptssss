@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 
-local speed = 60 -- CHANGED
+local speed = 53 -- CHANGED
 local enabled = false
 local moveConnection
 
@@ -38,7 +38,7 @@ box.Size = UDim2.new(0,60,0,50)
 box.Position = UDim2.new(0.05,140,0.8,0)
 box.BackgroundColor3 = Color3.fromRGB(15,15,15)
 box.TextColor3 = Color3.fromRGB(255,255,255)
-box.PlaceholderText = "60" -- CHANGED
+box.PlaceholderText = "53" -- CHANGED
 box.Text = ""
 box.Font = Enum.Font.GothamBold
 box.TextScaled = true
