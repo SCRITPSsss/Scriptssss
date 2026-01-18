@@ -1,0 +1,75 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+
+-- Track toggle state
+local toggled = false
+
+-- Create persistent ScreenGui in CoreGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToggleSyncGUI"
+screenGui.Parent = CoreGui
+
+-- Create label (SMALLER)
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0, 120, 0, 30) -- smaller
+label.Position = UDim2.new(0.5, -60, 0, 10) -- centered top
+label.BackgroundColor3 = Color3.fromRGB(30,30,30)
+label.TextColor3 = Color3.new(1,1,1)
+label.TextScaled = false
+label.TextSize = 14
+label.Font = Enum.Font.GothamBold
+label.Text = "TOGGLE OFF"
+label.Parent = screenGui
+
+-- Function to safely click the toggle button
+local function clickDeltaButton(button)
+	for _, conn in pairs(getconnections(button.MouseButton1Click)) do
+		conn.Function()
+	end
+	toggled = not toggled
+	label.Text = toggled and "TOGGLE ON" or "TOGGLE OFF"
+end
+
+-- Function to find the toggle button in CoreGui
+local function getToggleButton()
+	local success, button = pcall(function()
+		return CoreGui.Folder["chilli booster"].Pill.Toggle:WaitForChild("TextButton")
+	end)
+	if success then
+		return button
+	end
+	return nil
+end
+
+-- Main loop to monitor toggle
+spawn(function()
+	while true do
+		local toggleButton = getToggleButton()
+		if toggleButton then
+			
+			local function syncToggle()
+				local stealing = player:GetAttribute("Stealing")
+				if stealing and not toggled then
+					clickDeltaButton(toggleButton)
+				elseif not stealing and toggled then
+					clickDeltaButton(toggleButton)
+				end
+			end
+
+			player:GetAttributeChangedSignal("Stealing"):Connect(syncToggle)
+
+			syncToggle()
+
+			toggleButton.AncestryChanged:Connect(function(_, parent)
+				if not parent then
+					toggled = false
+					label.Text = "TOGGLE OFF"
+				end
+			end)
+
+			break
+		end
+		task.wait(1)
+	end
+end)
