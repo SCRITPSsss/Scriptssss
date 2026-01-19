@@ -1,0 +1,51 @@
+-- Folder in CoreGui to store highlights
+local highlightFolder = Instance.new("Folder")
+highlightFolder.Name = "ComputerHighlights"
+highlightFolder.Parent = game.CoreGui
+
+-- Function to create highlight for any object
+local function createHighlight(obj)
+	if not obj:IsA("BasePart") and not obj:IsA("MeshPart") and not obj:IsA("Model") then return end
+
+	-- Create the highlight
+	local highlight = Instance.new("Highlight")
+	highlight.Name = obj.Name .. "_Highlight"
+	highlight.FillTransparency = 0.4
+	highlight.OutlineTransparency = 0
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+
+	if obj:IsA("Model") then
+		if not obj.PrimaryPart then
+			obj.PrimaryPart = obj:FindFirstChildWhichIsA("BasePart")
+		end
+		highlight.Adornee = obj.PrimaryPart
+	else
+		highlight.Adornee = obj
+	end
+
+	highlight.Parent = highlightFolder
+end
+
+-- Function to scan workspace recursively and highlight all "Computer" objects
+local function highlightComputers(parent)
+	for _, obj in pairs(parent:GetChildren()) do
+		if obj.Name == "Computer" then
+			createHighlight(obj)
+		end
+		-- Recurse into models/folders
+		if #obj:GetChildren() > 0 then
+			highlightComputers(obj)
+		end
+	end
+end
+
+-- Initial scan
+highlightComputers(workspace)
+
+-- Optional: highlight new "Computer" objects added dynamically
+workspace.DescendantAdded:Connect(function(obj)
+	if obj.Name == "Computer" then
+		createHighlight(obj)
+	end
+end)
