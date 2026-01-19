@@ -1,0 +1,230 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--// VARIABLES
+local guiEnabled = true
+local isActive = false
+local walkSpeed = 16 -- default speed
+local defaultSpeed = 16
+
+--// UTILITY FUNCTION
+local function generateRandomName()
+	local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	local name = ""
+	for i = 1, 16 do
+		local rand = math.random(1, #chars)
+		name = name .. chars:sub(rand, rand)
+	end
+	return name
+end
+
+--// GUI CREATION
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = generateRandomName()
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 15, 35)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Visible = guiEnabled
+MainFrame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 16)
+Corner.Parent = MainFrame
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(59, 130, 246)
+Stroke.Transparency = 0.5
+Stroke.Thickness = 2
+Stroke.Parent = MainFrame
+
+--// TITLE
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 8)
+Title.BackgroundTransparency = 1
+Title.Text = "Speed GUI"
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 22
+Title.TextColor3 = Color3.fromRGB(59, 130, 246)
+Title.TextStrokeTransparency = 0.7
+Title.Parent = MainFrame
+
+--// ENABLE BUTTON
+local EnableButton = Instance.new("TextButton")
+EnableButton.Size = UDim2.new(0, 110, 0, 32)
+EnableButton.Position = UDim2.new(0, 12, 0, 45)
+EnableButton.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+EnableButton.BackgroundTransparency = 0.8
+EnableButton.BorderSizePixel = 0
+EnableButton.Text = "Enable"
+EnableButton.Font = Enum.Font.GothamBold
+EnableButton.TextSize = 13
+EnableButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+EnableButton.Parent = MainFrame
+
+local EC = Instance.new("UICorner")
+EC.CornerRadius = UDim.new(0, 10)
+EC.Parent = EnableButton
+
+--// DISABLE BUTTON
+local DisableButton = Instance.new("TextButton")
+DisableButton.Size = UDim2.new(0, 110, 0, 32)
+DisableButton.Position = UDim2.new(0, 128, 0, 45)
+DisableButton.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+DisableButton.BackgroundTransparency = 0.8
+DisableButton.BorderSizePixel = 0
+DisableButton.Text = "Disable"
+DisableButton.Font = Enum.Font.GothamBold
+DisableButton.TextSize = 13
+DisableButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+DisableButton.Parent = MainFrame
+
+local DC = Instance.new("UICorner")
+DC.CornerRadius = UDim.new(0, 10)
+DC.Parent = DisableButton
+
+--// SPEED TEXTBOX
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0, 110, 0, 32)
+SpeedBox.Position = UDim2.new(0, 12, 0, 85)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(168, 85, 247)
+SpeedBox.BackgroundTransparency = 0.7
+SpeedBox.BorderSizePixel = 0
+SpeedBox.Text = "Speed: 16"
+SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.TextSize = 12
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.PlaceholderText = "Speed"
+SpeedBox.ClearTextOnFocus = true
+SpeedBox.Parent = MainFrame
+
+local SBC = Instance.new("UICorner")
+SBC.CornerRadius = UDim.new(0, 10)
+SBC.Parent = SpeedBox
+
+--// STATUS LABEL
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -24, 0, 40)
+Status.Position = UDim2.new(0, 12, 0, 125)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: Inactive"
+Status.Font = Enum.Font.GothamMedium
+Status.TextSize = 12
+Status.TextColor3 = Color3.fromRGB(147, 197, 253)
+Status.TextTransparency = 0.4
+Status.Parent = MainFrame
+
+--// DRAGGING FUNCTIONALITY
+local dragging, dragStart, startPos, dragInput
+
+local function updateDrag(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input == dragInput then
+		updateDrag(input)
+	end
+end)
+
+--// TOGGLE GUI WITH L
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.L then
+		guiEnabled = not guiEnabled
+		MainFrame.Visible = guiEnabled
+	end
+end)
+
+--// ENABLE/DISABLE BUTTON LOGIC
+EnableButton.MouseButton1Click:Connect(function()
+	isActive = true
+	Status.Text = "Status: Active"
+	Status.TextColor3 = Color3.fromRGB(34, 197, 94)
+	Status.TextTransparency = 0.3
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+		LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
+	end
+end)
+
+DisableButton.MouseButton1Click:Connect(function()
+	isActive = false
+	Status.Text = "Status: Inactive"
+	Status.TextColor3 = Color3.fromRGB(147, 197, 253)
+	Status.TextTransparency = 0.4
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+		LocalPlayer.Character.Humanoid.WalkSpeed = defaultSpeed
+	end
+end)
+
+--// SPEED BOX LOGIC
+SpeedBox.FocusLost:Connect(function(enterPressed)
+	local input = tonumber(SpeedBox.Text:match("%d+"))
+	if input then
+		walkSpeed = input
+		SpeedBox.Text = "Speed: " .. input
+		Status.Text = "Status: Speed set"
+		wait(1)
+		if isActive then
+			Status.Text = "Status: Active"
+			LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
+		else
+			Status.Text = "Status: Inactive"
+		end
+	else
+		SpeedBox.Text = "Speed: " .. walkSpeed
+	end
+end)
+
+SpeedBox.Focused:Connect(function()
+	SpeedBox.Text = tostring(walkSpeed)
+end)
+
+--// MAINTAIN SPEED
+-- Keeps WalkSpeed consistent while active
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		if isActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+			LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
+		end
+	end
+end)
