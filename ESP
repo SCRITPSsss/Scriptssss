@@ -1,0 +1,79 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local TARGET_NAME = "IntegritySalvation" -- only this player
+
+local espFolder = Instance.new("Folder")
+espFolder.Name = "TargetESP"
+espFolder.Parent = game.CoreGui
+
+local function createESP(player)
+	if player.Name ~= TARGET_NAME then return end
+	if not player.Character then return end
+
+	-- Remove old ESP if it exists
+	if espFolder:FindFirstChild("ESP") then
+		espFolder.ESP:Destroy()
+	end
+	if espFolder:FindFirstChild("NameTag") then
+		espFolder.NameTag:Destroy()
+	end
+
+	-- Highlight
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ESP"
+	highlight.FillTransparency = 0.4
+	highlight.OutlineTransparency = 0
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.Adornee = player.Character
+	highlight.Parent = espFolder
+
+	-- Name Tag
+	local head = player.Character:FindFirstChild("Head")
+	if head then
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "NameTag"
+		billboard.Adornee = head
+		billboard.Size = UDim2.new(0, 100, 0, 50)
+		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+		billboard.AlwaysOnTop = true
+		billboard.Parent = espFolder
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1,0,1,0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = player.Name
+		nameLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+		nameLabel.TextStrokeTransparency = 0
+		nameLabel.TextScaled = true
+		nameLabel.Font = Enum.Font.SourceSansBold
+		nameLabel.Parent = billboard
+	end
+end
+
+local function setupTarget(player)
+	-- Create ESP now if character exists
+	if player.Character then
+		createESP(player)
+	end
+	-- Recreate ESP every time character respawns
+	player.CharacterAdded:Connect(function()
+		task.wait(0.5)
+		createESP(player)
+	end)
+end
+
+-- Listen for the target if already in the game
+for _, plr in pairs(Players:GetPlayers()) do
+	if plr.Name == TARGET_NAME then
+		setupTarget(plr)
+	end
+end
+
+-- Listen for target joining
+Players.PlayerAdded:Connect(function(player)
+	if player.Name == TARGET_NAME then
+		setupTarget(player)
+	end
+end)
