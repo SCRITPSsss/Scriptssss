@@ -1,0 +1,103 @@
+-- Services
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+-- CoreGui folder for Highlights
+local folder = Instance.new("Folder")
+folder.Name = "ComputerESP"
+folder.Parent = game.CoreGui
+
+-- Table to track Computers (key = model, value = data)
+local computers = {}
+
+-- Function to add a Computer to tracking
+local function trackComputer(obj)
+	if obj.Name ~= "Computer" then return end
+	if computers[obj] then return end -- Already tracked
+
+	local completed = obj:GetAttribute("Completed")
+	if completed == true then return end -- Skip completed
+
+	-- Pick a part for highlight/tracer
+	local part = nil
+	if obj:IsA("Model") then
+		part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+	elseif obj:IsA("BasePart") then
+		part = obj
+	end
+	if not part then return end
+
+	-- Create highlight
+	local highlight = Instance.new("Highlight")
+	highlight.FillTransparency = 0.4
+	highlight.OutlineTransparency = 0
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.Adornee = part
+	highlight.Parent = folder
+
+	-- Store in computers table
+	computers[obj] = {
+		part = part,
+		highlight = highlight
+	}
+end
+
+-- Recursive scan
+local function scanWorkspace(parent)
+	for _, obj in pairs(parent:GetChildren()) do
+		trackComputer(obj)
+		scanWorkspace(obj)
+	end
+end
+
+-- Initial scan
+task.wait(1)
+scanWorkspace(workspace)
+
+-- Dynamic tracking for new Computers
+workspace.DescendantAdded:Connect(trackComputer)
+
+-- Drawing tracers
+local drawingLines = {}
+for i = 1, 200 do
+	local line = Drawing.new("Line")
+	line.Visible = false
+	line.Color = Color3.fromRGB(255, 0, 0)
+	line.Thickness = 2
+	line.Transparency = 1
+	drawingLines[i] = line
+end
+
+-- Update loop
+RunService.RenderStepped:Connect(function()
+	local camPos = Camera.CFrame.Position
+	local index = 1
+	for obj, data in pairs(computers) do
+		-- Remove if completed or destroyed
+		if not obj.Parent or obj:GetAttribute("Completed") == true then
+			if data.highlight then
+				data.highlight:Destroy()
+			end
+			computers[obj] = nil
+		else
+			-- Update tracer to the part
+			local part = data.part
+			if part and part.Parent then
+				local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+				if onScreen then
+					local line = drawingLines[index]
+					line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y) -- bottom-center
+					line.To = Vector2.new(screenPos.X, screenPos.Y)
+					line.Visible = true
+					index = index + 1
+				end
+			end
+		end
+	end
+
+	-- Hide unused lines
+	for i = index, #drawingLines do
+		drawingLines[i].Visible = false
+	end
+end)
