@@ -16,7 +16,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if not humanoidRootPart then return end
 
 		-- Move 4 studs forward based on where you're facing
-		local forwardOffset = humanoidRootPart.CFrame.LookVector * 4
+		local forwardOffset = humanoidRootPart.CFrame.LookVector * 10
 		humanoidRootPart.CFrame = humanoidRootPart.CFrame + forwardOffset
 	end
 end)
