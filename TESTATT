@@ -1,0 +1,61 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+local points = {
+	Vector3.new(-475, -7, 95),
+	Vector3.new(-488, -4, 96),
+}
+
+local running = false
+
+local function runTo(targetPos)
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	while char.Parent and hum.Health > 0 do
+		local diff = (targetPos - hrp.Position)
+		local dist = diff.Magnitude
+		if dist < 3 then break end
+
+		-- uses your current WalkSpeed (doesn't change it)
+		hum:Move(diff.Unit, false)
+		RunService.Heartbeat:Wait()
+	end
+
+	hum:Move(Vector3.new(0,0,0), false)
+end
+
+local function startRun()
+	if running then return end
+	running = true
+
+	for _, pos in ipairs(points) do
+		runTo(pos)
+		task.wait(0.05)
+	end
+
+	running = false
+end
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "RunToPositionsGUI"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0, 20, 0, 200)
+button.Text = "RUN TO POSITIONS"
+button.TextScaled = true
+button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.BorderSizePixel = 0
+button.Parent = gui
+
+button.MouseButton1Click:Connect(function()
+	startRun()
+end)
