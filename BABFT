@@ -1,0 +1,118 @@
+-- Wait until the game fully loads
+task.wait()
+until game:IsLoaded()
+
+local HUB_SCRIPT_ID = "72f5693f13d3d2008d69785db59bcb12"
+local MAIN_FOLDER = "BBuilderHub"
+local KEY_FILE = MAIN_FOLDER .. "/Key.txt"
+
+local ReGui = loadstring(game:HttpGet("https://raw.githubusercontent.com/catblox1346/StensUIReMake/refs/heads/main/UIStuff/ReGui-Backup"))()
+local luarmor = loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/library.lua"))()
+
+local cloneref = cloneref or function(x)
+	return x
+end
+local Players = cloneref(game:GetService("Players"))
+
+-- Ensure folder exists
+if not isfolder(MAIN_FOLDER) then
+	makefolder(MAIN_FOLDER)
+end
+
+-- Fake key functions
+local function readKey()
+	if isfile(KEY_FILE) then
+		local ok, v = pcall(readfile, KEY_FILE)
+		return ok and v or nil
+	end
+end
+
+local function writeKey(k)
+	if not isfolder(MAIN_FOLDER) then makefolder(MAIN_FOLDER) end
+	pcall(writefile, KEY_FILE, k)
+end
+
+-- Accept any key
+local function validate(k)
+	k = tostring(k)
+	if k == "" or not k then
+		return false
+	end
+	writeKey(k) -- Save key locally
+	_G.script_key = k
+	return true
+end
+
+-- If key exists, auto-load
+if _G.script_key then
+	luarmor.load_script()
+	return
+elseif readKey() then
+	_G.script_key = readKey()
+	luarmor.load_script()
+	return
+end
+
+-- GUI for key input
+local win = ReGui:Window({
+	Title = "BoatBuilderHub | Key System",
+	NoClose = true,
+	NoResize = true,
+	Size = UDim2.new(0, 480, 0, 320),
+}):Center()
+
+win:Label({
+	Text = "🔒 Script Locked",
+	TextSize = 20,
+	Size = UDim2.new(1, 0, 0, 32),
+})
+
+win:Separator()
+
+win:Label({
+	Text = "Enter your key to continue",
+	TextWrapped = true,
+	Size = UDim2.new(1, 0, 0, 20),
+})
+
+local statusLabel = win:Label({
+	Text = "",
+	TextWrapped = true,
+	TextColor3 = Color3.fromRGB(255, 40, 40),
+	Size = UDim2.new(1, 0, 0, 22),
+})
+
+local function setStatus(text, success)
+	statusLabel.Text = text
+	statusLabel.TextColor3 = success and Color3.fromRGB(40, 255, 40) or Color3.fromRGB(255, 40, 40)
+end
+
+local keyText = ""
+
+local rowKey = win:Row({ Expanded = false })
+
+rowKey:InputText({
+	Label = "",
+	Placeholder = "Paste key here",
+	Default = keyText,
+	Callback = function(_, v)
+		keyText = v
+	end,
+})
+
+rowKey:Button({
+	Text = "Submit",
+	BackgroundColor3 = Color3.fromRGB(70, 200, 120),
+	Size = UDim2.new(0, 100, 0, 20),
+	Callback = function()
+		if validate(keyText) then
+			setStatus("Key accepted, loading...", true)
+			task.delay(0.15, function()
+				pcall(function() win:Close() end)
+			end)
+			luarmor.load_script()
+		else
+			setStatus("Invalid key, try again.", false)
+		end
+	end,
+})
