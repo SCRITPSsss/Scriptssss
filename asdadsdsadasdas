@@ -1,0 +1,561 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local lp = Players.LocalPlayer
+
+-- CONFIG
+local TELEPORT_KEY = Enum.KeyCode.U
+local STICK_OFFSET = Vector3.new(0, 0, 2)
+
+-- Remove old GUI if exists
+pcall(function()
+    local old = game:GetService("CoreGui"):FindFirstChild("PlayerTPGui")
+    if old then old:Destroy() end
+end)
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "PlayerTPGui"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = game:GetService("CoreGui")
+
+-- Shadow
+local shadow = Instance.new("Frame")
+shadow.Size = UDim2.new(0, 184, 0, 300)
+shadow.Position = UDim2.new(0, 54, 0, 54)
+shadow.BackgroundColor3 = Color3.fromRGB(5, 2, 20)
+shadow.BackgroundTransparency = 0.45
+shadow.BorderSizePixel = 0
+shadow.ZIndex = 1
+shadow.Parent = gui
+Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
+
+-- Main frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 296)
+frame.Position = UDim2.new(0, 50, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(16, 10, 40)
+frame.BorderSizePixel = 0
+frame.ZIndex = 2
+frame.Active = true
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+
+local frameGrad = Instance.new("UIGradient")
+frameGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 16, 65)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 6, 30)),
+})
+frameGrad.Rotation = 135
+frameGrad.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(110, 55, 240)
+stroke.Thickness = 1.5
+stroke.Transparency = 0.25
+stroke.Parent = frame
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(22, 12, 55)
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 3
+titleBar.Active = true
+titleBar.Parent = frame
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 14)
+
+local titleFill = Instance.new("Frame")
+titleFill.Size = UDim2.new(1, 0, 0, 14)
+titleFill.Position = UDim2.new(0, 0, 1, -14)
+titleFill.BackgroundColor3 = Color3.fromRGB(22, 12, 55)
+titleFill.BorderSizePixel = 0
+titleFill.ZIndex = 3
+titleFill.Parent = titleBar
+
+local titleGrad = Instance.new("UIGradient")
+titleGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(75, 25, 190)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 75, 245)),
+})
+titleGrad.Rotation = 90
+titleGrad.Parent = titleBar
+
+local dot = Instance.new("Frame")
+dot.Size = UDim2.new(0, 7, 0, 7)
+dot.Position = UDim2.new(0, 13, 0.5, -3)
+dot.BackgroundColor3 = Color3.fromRGB(170, 90, 255)
+dot.BorderSizePixel = 0
+dot.ZIndex = 5
+dot.Parent = titleBar
+Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -60, 1, 0)
+titleLabel.Position = UDim2.new(0, 26, 0, 0)
+titleLabel.Text = "PLAYER  TP"
+titleLabel.TextColor3 = Color3.fromRGB(225, 200, 255)
+titleLabel.TextSize = 11
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 5
+titleLabel.Parent = titleBar
+
+-- =====================
+-- CLOSE BUTTON (proper X)
+-- =====================
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 24, 0, 24)
+closeBtn.Position = UDim2.new(1, -32, 0.5, -12)
+closeBtn.Text = ""
+closeBtn.BackgroundColor3 = Color3.fromRGB(130, 25, 80)
+closeBtn.BorderSizePixel = 0
+closeBtn.ZIndex = 6
+closeBtn.AutoButtonColor = false
+closeBtn.Parent = titleBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+
+local closeBtnStroke = Instance.new("UIStroke")
+closeBtnStroke.Color = Color3.fromRGB(220, 60, 120)
+closeBtnStroke.Thickness = 1
+closeBtnStroke.Transparency = 0.4
+closeBtnStroke.Parent = closeBtn
+
+-- Draw the X using two rotated frames
+local xLine1 = Instance.new("Frame")
+xLine1.Size = UDim2.new(0, 12, 0, 2)
+xLine1.Position = UDim2.new(0.5, -6, 0.5, -1)
+xLine1.Rotation = 45
+xLine1.BackgroundColor3 = Color3.fromRGB(255, 140, 190)
+xLine1.BorderSizePixel = 0
+xLine1.ZIndex = 7
+xLine1.Parent = closeBtn
+Instance.new("UICorner", xLine1).CornerRadius = UDim.new(1, 0)
+
+local xLine2 = Instance.new("Frame")
+xLine2.Size = UDim2.new(0, 12, 0, 2)
+xLine2.Position = UDim2.new(0.5, -6, 0.5, -1)
+xLine2.Rotation = -45
+xLine2.BackgroundColor3 = Color3.fromRGB(255, 140, 190)
+xLine2.BorderSizePixel = 0
+xLine2.ZIndex = 7
+xLine2.Parent = closeBtn
+Instance.new("UICorner", xLine2).CornerRadius = UDim.new(1, 0)
+
+closeBtn.MouseEnter:Connect(function()
+    TweenService:Create(closeBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(200, 40, 100)}):Play()
+    TweenService:Create(closeBtnStroke, TweenInfo.new(0.12), {Transparency = 0}):Play()
+end)
+closeBtn.MouseLeave:Connect(function()
+    TweenService:Create(closeBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(130, 25, 80)}):Play()
+    TweenService:Create(closeBtnStroke, TweenInfo.new(0.12), {Transparency = 0.4}):Play()
+end)
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+-- =====================
+-- KEY BIND SECTION
+-- =====================
+local bindSection = Instance.new("Frame")
+bindSection.Size = UDim2.new(1, -12, 0, 50)
+bindSection.Position = UDim2.new(0, 6, 0, 44)
+bindSection.BackgroundColor3 = Color3.fromRGB(20, 11, 48)
+bindSection.BorderSizePixel = 0
+bindSection.ZIndex = 3
+bindSection.Parent = frame
+Instance.new("UICorner", bindSection).CornerRadius = UDim.new(0, 8)
+
+local bindSectionStroke = Instance.new("UIStroke")
+bindSectionStroke.Color = Color3.fromRGB(65, 30, 120)
+bindSectionStroke.Thickness = 1
+bindSectionStroke.Transparency = 0.5
+bindSectionStroke.Parent = bindSection
+
+local bindTitle = Instance.new("TextLabel")
+bindTitle.Size = UDim2.new(1, -8, 0, 18)
+bindTitle.Position = UDim2.new(0, 8, 0, 4)
+bindTitle.Text = "TELEPORT KEY"
+bindTitle.TextColor3 = Color3.fromRGB(110, 80, 175)
+bindTitle.TextSize = 9
+bindTitle.Font = Enum.Font.GothamBold
+bindTitle.BackgroundTransparency = 1
+bindTitle.TextXAlignment = Enum.TextXAlignment.Left
+bindTitle.ZIndex = 4
+bindTitle.Parent = bindSection
+
+-- Key display + bind button row
+local keyDisplay = Instance.new("Frame")
+keyDisplay.Size = UDim2.new(0, 70, 0, 22)
+keyDisplay.Position = UDim2.new(0, 8, 0, 22)
+keyDisplay.BackgroundColor3 = Color3.fromRGB(35, 18, 80)
+keyDisplay.BorderSizePixel = 0
+keyDisplay.ZIndex = 4
+keyDisplay.Parent = bindSection
+Instance.new("UICorner", keyDisplay).CornerRadius = UDim.new(0, 6)
+
+local keyStroke = Instance.new("UIStroke")
+keyStroke.Color = Color3.fromRGB(120, 60, 240)
+keyStroke.Thickness = 1
+keyStroke.Transparency = 0.2
+keyStroke.Parent = keyDisplay
+
+local keyText = Instance.new("TextLabel")
+keyText.Size = UDim2.new(1, 0, 1, 0)
+keyText.Text = TELEPORT_KEY.Name
+keyText.TextColor3 = Color3.fromRGB(200, 165, 255)
+keyText.TextSize = 11
+keyText.Font = Enum.Font.GothamBold
+keyText.BackgroundTransparency = 1
+keyText.ZIndex = 5
+keyText.Parent = keyDisplay
+
+local bindBtn = Instance.new("TextButton")
+bindBtn.Size = UDim2.new(0, 86, 0, 22)
+bindBtn.Position = UDim2.new(0, 82, 0, 22)
+bindBtn.Text = "REBIND"
+bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
+bindBtn.TextSize = 10
+bindBtn.Font = Enum.Font.GothamBold
+bindBtn.BackgroundColor3 = Color3.fromRGB(55, 22, 130)
+bindBtn.BorderSizePixel = 0
+bindBtn.ZIndex = 4
+bindBtn.AutoButtonColor = false
+bindBtn.Parent = bindSection
+Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 6)
+
+local bindBtnStroke = Instance.new("UIStroke")
+bindBtnStroke.Color = Color3.fromRGB(120, 60, 240)
+bindBtnStroke.Thickness = 1
+bindBtnStroke.Transparency = 0.3
+bindBtnStroke.Parent = bindBtn
+
+-- Rebind logic
+local isBinding = false
+
+local function setBindingMode(active)
+    isBinding = active
+    if active then
+        bindBtn.Text = "PRESS A KEY..."
+        bindBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
+        TweenService:Create(bindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 55, 10)}):Play()
+        TweenService:Create(bindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        TweenService:Create(keyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        keyText.TextColor3 = Color3.fromRGB(255, 220, 100)
+        keyText.Text = "?"
+    else
+        bindBtn.Text = "REBIND"
+        bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
+        TweenService:Create(bindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
+        TweenService:Create(bindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
+        TweenService:Create(keyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
+        keyText.TextColor3 = Color3.fromRGB(200, 165, 255)
+        keyText.Text = TELEPORT_KEY.Name
+    end
+end
+
+bindBtn.MouseEnter:Connect(function()
+    if not isBinding then
+        TweenService:Create(bindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 30, 160)}):Play()
+    end
+end)
+bindBtn.MouseLeave:Connect(function()
+    if not isBinding then
+        TweenService:Create(bindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
+    end
+end)
+
+bindBtn.MouseButton1Click:Connect(function()
+    if not isBinding then
+        setBindingMode(true)
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if isBinding then
+        -- Ignore mouse inputs and modifier-only keys
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        local ignoredKeys = {
+            Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
+            Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
+            Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt,
+            Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
+        }
+        for _, k in ipairs(ignoredKeys) do
+            if input.KeyCode == k then return end
+        end
+        TELEPORT_KEY = input.KeyCode
+        setBindingMode(false)
+        -- Flash confirm
+        TweenService:Create(keyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 80, 30)}):Play()
+        task.delay(0.4, function()
+            TweenService:Create(keyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
+        end)
+        return
+    end
+end)
+
+-- Divider
+local div = Instance.new("Frame")
+div.Size = UDim2.new(1, -12, 0, 1)
+div.Position = UDim2.new(0, 6, 0, 98)
+div.BackgroundColor3 = Color3.fromRGB(75, 35, 150)
+div.BackgroundTransparency = 0.4
+div.BorderSizePixel = 0
+div.ZIndex = 3
+div.Parent = frame
+
+-- Player list
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(1, -10, 1, -128)
+list.Position = UDim2.new(0, 5, 0, 102)
+list.BackgroundTransparency = 1
+list.BorderSizePixel = 0
+list.CanvasSize = UDim2.new(0, 0, 0, 0)
+list.ScrollBarThickness = 3
+list.ScrollBarImageColor3 = Color3.fromRGB(130, 60, 255)
+list.ZIndex = 3
+list.Parent = frame
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = list
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 4)
+
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, 3)
+pad.PaddingBottom = UDim.new(0, 3)
+pad.Parent = list
+
+-- Status bar
+local statusBg = Instance.new("Frame")
+statusBg.Size = UDim2.new(1, -12, 0, 22)
+statusBg.Position = UDim2.new(0, 6, 1, -26)
+statusBg.BackgroundColor3 = Color3.fromRGB(18, 9, 45)
+statusBg.BorderSizePixel = 0
+statusBg.ZIndex = 3
+statusBg.Parent = frame
+Instance.new("UICorner", statusBg).CornerRadius = UDim.new(0, 6)
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -8, 1, 0)
+statusLabel.Position = UDim2.new(0, 8, 0, 0)
+statusLabel.Text = "No target selected"
+statusLabel.TextColor3 = Color3.fromRGB(90, 65, 145)
+statusLabel.TextSize = 10
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.ZIndex = 4
+statusLabel.Parent = statusBg
+
+local function setStatus(text, color)
+    statusLabel.Text = text
+    statusLabel.TextColor3 = color or Color3.fromRGB(90, 65, 145)
+end
+
+-- =====================
+-- DRAGGING
+-- =====================
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
+        frame.Position = newPos
+        shadow.Position = UDim2.new(0, startPos.X.Offset + delta.X + 4, 0, startPos.Y.Offset + delta.Y + 4)
+    end
+end)
+
+-- =====================
+-- PLAYER BUTTONS
+-- =====================
+local selectedPlayer = nil
+local stickActive = false
+
+local function refresh()
+    for _, v in ipairs(list:GetChildren()) do
+        if v:IsA("TextButton") or (v:IsA("TextLabel") and v.Name == "EmptyLabel") then
+            v:Destroy()
+        end
+    end
+
+    local count = 0
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp then
+            count += 1
+            local isSelected = (selectedPlayer == plr)
+
+            local btn = Instance.new("TextButton")
+            btn.Name = plr.Name
+            btn.Size = UDim2.new(1, 0, 0, 32)
+            btn.Text = ""
+            btn.BackgroundColor3 = isSelected and Color3.fromRGB(50, 18, 120) or Color3.fromRGB(26, 14, 55)
+            btn.BorderSizePixel = 0
+            btn.ZIndex = 4
+            btn.AutoButtonColor = false
+            btn.Parent = list
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+            local btnStroke = Instance.new("UIStroke")
+            btnStroke.Color = isSelected and Color3.fromRGB(140, 70, 255) or Color3.fromRGB(60, 28, 110)
+            btnStroke.Thickness = 1
+            btnStroke.Transparency = isSelected and 0 or 0.4
+            btnStroke.Parent = btn
+
+            local iconFrame = Instance.new("Frame")
+            iconFrame.Size = UDim2.new(0, 20, 0, 20)
+            iconFrame.Position = UDim2.new(0, 6, 0.5, -10)
+            iconFrame.BackgroundColor3 = isSelected and Color3.fromRGB(120, 50, 255) or Color3.fromRGB(70, 32, 140)
+            iconFrame.BorderSizePixel = 0
+            iconFrame.ZIndex = 5
+            iconFrame.Parent = btn
+            Instance.new("UICorner", iconFrame).CornerRadius = UDim.new(1, 0)
+
+            local iconTxt = Instance.new("TextLabel")
+            iconTxt.Size = UDim2.new(1, 0, 1, 0)
+            iconTxt.Text = string.upper(string.sub(plr.Name, 1, 1))
+            iconTxt.TextColor3 = Color3.fromRGB(220, 185, 255)
+            iconTxt.TextSize = 9
+            iconTxt.Font = Enum.Font.GothamBold
+            iconTxt.BackgroundTransparency = 1
+            iconTxt.ZIndex = 6
+            iconTxt.Parent = iconFrame
+
+            local nameLbl = Instance.new("TextLabel")
+            nameLbl.Name = "NameLabel"
+            nameLbl.Size = UDim2.new(1, -36, 1, 0)
+            nameLbl.Position = UDim2.new(0, 32, 0, 0)
+            nameLbl.Text = plr.Name
+            nameLbl.TextColor3 = isSelected and Color3.fromRGB(220, 185, 255) or Color3.fromRGB(170, 145, 215)
+            nameLbl.TextSize = 11
+            nameLbl.Font = Enum.Font.Gotham
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            nameLbl.ZIndex = 5
+            nameLbl.Parent = btn
+
+            btn.MouseEnter:Connect(function()
+                if selectedPlayer ~= plr then
+                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(36, 20, 75)}):Play()
+                end
+            end)
+            btn.MouseLeave:Connect(function()
+                if selectedPlayer ~= plr then
+                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(26, 14, 55)}):Play()
+                end
+            end)
+
+            btn.MouseButton1Click:Connect(function()
+                if selectedPlayer == plr then
+                    selectedPlayer = nil
+                    setStatus("No target selected")
+                else
+                    selectedPlayer = plr
+                    setStatus("→ " .. plr.Name, Color3.fromRGB(155, 95, 255))
+                end
+                refresh()
+            end)
+        end
+    end
+
+    if count == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Name = "EmptyLabel"
+        empty.Size = UDim2.new(1, 0, 0, 30)
+        empty.Text = "No other players"
+        empty.TextColor3 = Color3.fromRGB(80, 55, 115)
+        empty.TextSize = 11
+        empty.Font = Enum.Font.Gotham
+        empty.BackgroundTransparency = 1
+        empty.ZIndex = 4
+        empty.Parent = list
+    end
+
+    task.wait()
+    list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
+end
+
+refresh()
+
+Players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    refresh()
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    if selectedPlayer == plr then
+        selectedPlayer = nil
+        setStatus("No target selected")
+    end
+    task.wait(0.1)
+    refresh()
+end)
+
+-- =====================
+-- TELEPORT / STICK
+-- =====================
+RunService.RenderStepped:Connect(function()
+    if stickActive and selectedPlayer and selectedPlayer.Character and lp.Character then
+        local tHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local mHRP = lp.Character:FindFirstChild("HumanoidRootPart")
+        if tHRP and mHRP then
+            mHRP.CFrame = tHRP.CFrame * CFrame.new(STICK_OFFSET)
+        end
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if isBinding then return end
+    if gpe then return end
+    if input.KeyCode == TELEPORT_KEY then
+        if selectedPlayer and selectedPlayer.Character and lp.Character then
+            local tHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local mHRP = lp.Character:FindFirstChild("HumanoidRootPart")
+            if tHRP and mHRP then
+                mHRP.CFrame = tHRP.CFrame * CFrame.new(STICK_OFFSET)
+                stickActive = true
+                setStatus("⬡ Sticking: " .. selectedPlayer.Name, Color3.fromRGB(90, 230, 160))
+                TweenService:Create(stroke, TweenInfo.new(0.25), {Color = Color3.fromRGB(80, 220, 150), Transparency = 0}):Play()
+            end
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if isBinding then return end
+    if input.KeyCode == TELEPORT_KEY then
+        stickActive = false
+        if selectedPlayer then
+            setStatus("→ " .. selectedPlayer.Name, Color3.fromRGB(155, 95, 255))
+        else
+            setStatus("No target selected")
+        end
+        TweenService:Create(stroke, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
+    end
+end)
