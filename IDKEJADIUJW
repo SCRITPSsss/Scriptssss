@@ -1,0 +1,75 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local lp = Players.LocalPlayer
+
+-- LOCATIONS
+local locations = {
+    BUNKER = Vector3.new(690,-15,-28),
+    OUTSIDE = Vector3.new(-158,3,-20),
+    ["BUNKER DOOR"] = Vector3.new(606,-13,-17)  -- match the button name
+}
+
+local selected = nil
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "TeleportGui"
+gui.Parent = game.CoreGui
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,150,0,130)
+frame.Position = UDim2.new(0,600,0,200)
+frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,20)
+title.BackgroundTransparency = 1
+title.Text = "Tp locations (HBG)"
+title.TextColor3 = Color3.new(1,1,1)
+title.Parent = frame
+
+-- Function to create buttons
+local function makeButton(name,posY)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-10,0,25)
+    b.Position = UDim2.new(0,5,0,posY)
+    b.Text = name
+    b.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Parent = frame
+
+    b.MouseButton1Click:Connect(function()
+        selected = name  -- store the button name as selected key
+
+        -- Reset all button colors
+        for _,v in ipairs(frame:GetChildren()) do
+            if v:IsA("TextButton") then
+                v.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            end
+        end
+
+        -- Highlight the clicked button
+        b.BackgroundColor3 = Color3.fromRGB(0,120,255)
+    end)
+end
+
+-- Create buttons
+makeButton("BUNKER",25)
+makeButton("OUTSIDE",55)
+makeButton("BUNKER DOOR",85)  -- matches locations key
+
+-- TELEPORT WHEN PRESS U
+UIS.InputBegan:Connect(function(input,gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.U and selected then
+        local char = lp.Character or lp.CharacterAdded:Wait()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(locations[selected])
+        end
+    end
+end)
