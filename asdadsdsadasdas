@@ -646,6 +646,7 @@ local function refresh()
             end)
 
             btn.MouseButton1Click:Connect(function()
+                stickActive = false  -- cancel any active stick when manually changing target
                 if selectedPlayer == plr then
                     selectedPlayer = nil
                     setStatus("No target selected")
@@ -653,6 +654,7 @@ local function refresh()
                     selectedPlayer = plr
                     setStatus("→ " .. plr.Name, Color3.fromRGB(155, 95, 255))
                 end
+                TweenService:Create(stroke, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
                 refresh()
             end)
         end
@@ -715,6 +717,7 @@ local function selectClosestPlayer()
     end
 
     if closest then
+        stickActive = false  -- cancel any active stick when auto-selecting closest
         selectedPlayer = closest
         setStatus("◎ Closest: " .. closest.Name, Color3.fromRGB(60, 220, 170))
         -- Flash the GUI stroke teal briefly
