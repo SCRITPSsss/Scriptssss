@@ -22,7 +22,7 @@ gui.Parent = game:GetService("CoreGui")
 
 -- Shadow
 local shadow = Instance.new("Frame")
-shadow.Size = UDim2.new(0, 184, 0, 300)
+shadow.Size = UDim2.new(0, 184, 0, 340)
 shadow.Position = UDim2.new(0, 54, 0, 54)
 shadow.BackgroundColor3 = Color3.fromRGB(5, 2, 20)
 shadow.BackgroundTransparency = 0.45
@@ -33,7 +33,7 @@ Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
 
 -- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 296)
+frame.Size = UDim2.new(0, 180, 0, 336)
 frame.Position = UDim2.new(0, 50, 0, 50)
 frame.BackgroundColor3 = Color3.fromRGB(16, 10, 40)
 frame.BorderSizePixel = 0
@@ -124,7 +124,6 @@ closeBtnStroke.Thickness = 1
 closeBtnStroke.Transparency = 0.4
 closeBtnStroke.Parent = closeBtn
 
--- Draw the X using two rotated frames
 local xLine1 = Instance.new("Frame")
 xLine1.Size = UDim2.new(0, 12, 0, 2)
 xLine1.Position = UDim2.new(0.5, -6, 0.5, -1)
@@ -187,7 +186,6 @@ bindTitle.TextXAlignment = Enum.TextXAlignment.Left
 bindTitle.ZIndex = 4
 bindTitle.Parent = bindSection
 
--- Key display + bind button row
 local keyDisplay = Instance.new("Frame")
 keyDisplay.Size = UDim2.new(0, 70, 0, 22)
 keyDisplay.Position = UDim2.new(0, 8, 0, 22)
@@ -233,7 +231,6 @@ bindBtnStroke.Thickness = 1
 bindBtnStroke.Transparency = 0.3
 bindBtnStroke.Parent = bindBtn
 
--- Rebind logic
 local isBinding = false
 
 local function setBindingMode(active)
@@ -276,7 +273,6 @@ end)
 
 UIS.InputBegan:Connect(function(input, gpe)
     if isBinding then
-        -- Ignore mouse inputs and modifier-only keys
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         local ignoredKeys = {
             Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
@@ -289,7 +285,6 @@ UIS.InputBegan:Connect(function(input, gpe)
         end
         TELEPORT_KEY = input.KeyCode
         setBindingMode(false)
-        -- Flash confirm
         TweenService:Create(keyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 80, 30)}):Play()
         task.delay(0.4, function()
             TweenService:Create(keyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
@@ -298,10 +293,124 @@ UIS.InputBegan:Connect(function(input, gpe)
     end
 end)
 
+-- =====================
+-- MODE BUTTONS (FIGHT / STEAL)
+-- =====================
+local currentMode = "FIGHT" -- default
+
+local modeSection = Instance.new("Frame")
+modeSection.Size = UDim2.new(1, -12, 0, 36)
+modeSection.Position = UDim2.new(0, 6, 0, 98)
+modeSection.BackgroundColor3 = Color3.fromRGB(20, 11, 48)
+modeSection.BorderSizePixel = 0
+modeSection.ZIndex = 3
+modeSection.Parent = frame
+Instance.new("UICorner", modeSection).CornerRadius = UDim.new(0, 8)
+
+local modeSectionStroke = Instance.new("UIStroke")
+modeSectionStroke.Color = Color3.fromRGB(65, 30, 120)
+modeSectionStroke.Thickness = 1
+modeSectionStroke.Transparency = 0.5
+modeSectionStroke.Parent = modeSection
+
+-- FIGHT button
+local fightBtn = Instance.new("TextButton")
+fightBtn.Size = UDim2.new(0.5, -5, 1, -8)
+fightBtn.Position = UDim2.new(0, 4, 0, 4)
+fightBtn.Text = "FIGHT"
+fightBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+fightBtn.TextSize = 10
+fightBtn.Font = Enum.Font.GothamBold
+fightBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+fightBtn.BorderSizePixel = 0
+fightBtn.ZIndex = 4
+fightBtn.AutoButtonColor = false
+fightBtn.Parent = modeSection
+Instance.new("UICorner", fightBtn).CornerRadius = UDim.new(0, 6)
+
+local fightStroke = Instance.new("UIStroke")
+fightStroke.Color = Color3.fromRGB(220, 60, 60)
+fightStroke.Thickness = 1.5
+fightStroke.Transparency = 0 -- active by default
+fightStroke.Parent = fightBtn
+
+-- STEAL button
+local stealBtn = Instance.new("TextButton")
+stealBtn.Size = UDim2.new(0.5, -5, 1, -8)
+stealBtn.Position = UDim2.new(0.5, 1, 0, 4)
+stealBtn.Text = "STEAL"
+stealBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+stealBtn.TextSize = 10
+stealBtn.Font = Enum.Font.GothamBold
+stealBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 50)
+stealBtn.BorderSizePixel = 0
+stealBtn.ZIndex = 4
+stealBtn.AutoButtonColor = false
+stealBtn.Parent = modeSection
+Instance.new("UICorner", stealBtn).CornerRadius = UDim.new(0, 6)
+
+local stealStroke = Instance.new("UIStroke")
+stealStroke.Color = Color3.fromRGB(100, 180, 255)
+stealStroke.Thickness = 1.5
+stealStroke.Transparency = 0.6 -- inactive
+stealStroke.Parent = stealBtn
+
+local function setMode(mode)
+    currentMode = mode
+    if mode == "FIGHT" then
+        STICK_OFFSET = Vector3.new(0, 0, 5)
+        -- FIGHT active
+        TweenService:Create(fightBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 20, 20)}):Play()
+        fightBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        TweenService:Create(fightStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
+        -- STEAL inactive
+        TweenService:Create(stealBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
+        stealBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        TweenService:Create(stealStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
+    else
+        STICK_OFFSET = Vector3.new(0, 0, 1.5)
+        -- STEAL active
+        TweenService:Create(stealBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(15, 30, 70)}):Play()
+        stealBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
+        TweenService:Create(stealStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
+        -- FIGHT inactive
+        TweenService:Create(fightBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
+        fightBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        TweenService:Create(fightStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
+    end
+end
+
+-- Set initial offset to match default FIGHT mode
+STICK_OFFSET = Vector3.new(0, 0, 3)
+
+fightBtn.MouseButton1Click:Connect(function() setMode("FIGHT") end)
+stealBtn.MouseButton1Click:Connect(function() setMode("STEAL") end)
+
+fightBtn.MouseEnter:Connect(function()
+    if currentMode ~= "FIGHT" then
+        TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 15, 15)}):Play()
+    end
+end)
+fightBtn.MouseLeave:Connect(function()
+    if currentMode ~= "FIGHT" then
+        TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
+    end
+end)
+stealBtn.MouseEnter:Connect(function()
+    if currentMode ~= "STEAL" then
+        TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(20, 25, 60)}):Play()
+    end
+end)
+stealBtn.MouseLeave:Connect(function()
+    if currentMode ~= "STEAL" then
+        TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
+    end
+end)
+
 -- Divider
 local div = Instance.new("Frame")
 div.Size = UDim2.new(1, -12, 0, 1)
-div.Position = UDim2.new(0, 6, 0, 98)
+div.Position = UDim2.new(0, 6, 0, 138)
 div.BackgroundColor3 = Color3.fromRGB(75, 35, 150)
 div.BackgroundTransparency = 0.4
 div.BorderSizePixel = 0
@@ -310,8 +419,8 @@ div.Parent = frame
 
 -- Player list
 local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(1, -10, 1, -128)
-list.Position = UDim2.new(0, 5, 0, 102)
+list.Size = UDim2.new(1, -10, 1, -168)
+list.Position = UDim2.new(0, 5, 0, 142)
 list.BackgroundTransparency = 1
 list.BorderSizePixel = 0
 list.CanvasSize = UDim2.new(0, 0, 0, 0)
