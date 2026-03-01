@@ -2,28 +2,78 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local lp = Players.LocalPlayer
 
+-- =====================
 -- CONFIG
+-- =====================
 local TELEPORT_KEY = Enum.KeyCode.K
-local SELECT_CLOSEST_KEY = Enum.KeyCode.R   -- default keybind for selecting closest player
-local STICK_OFFSET = Vector3.new(0, 0, 2)
+local SELECT_CLOSEST_KEY = Enum.KeyCode.R
+local STICK_OFFSET = Vector3.new(0, 0, 3)
 
--- Remove old GUI if exists
+-- =====================
+-- FRIENDS LIST (saved as JSON)
+-- Players in this list are SKIPPED by Select Closest only
+-- =====================
+local FRIENDS_FILE = "playertp_friends.json"
+local friendsSet = {}  -- { [lowercaseUsername] = true }
+
+local function saveFriends()
+    local arr = {}
+    for name in pairs(friendsSet) do table.insert(arr, name) end
+    pcall(function() writefile(FRIENDS_FILE, HttpService:JSONEncode(arr)) end)
+end
+
+local function loadFriends()
+    local ok, data = pcall(function() return readfile(FRIENDS_FILE) end)
+    if ok and data then
+        local ok2, arr = pcall(function() return HttpService:JSONDecode(data) end)
+        if ok2 and type(arr) == "table" then
+            for _, name in ipairs(arr) do
+                friendsSet[string.lower(tostring(name))] = true
+            end
+        end
+    end
+end
+
+loadFriends()
+
+local function isFriend(plr)
+    return friendsSet[string.lower(plr.Name)] == true
+end
+
+local function toggleFriend(plr)
+    local key = string.lower(plr.Name)
+    if friendsSet[key] then
+        friendsSet[key] = nil
+    else
+        friendsSet[key] = true
+    end
+    saveFriends()
+end
+
+-- =====================
+-- REMOVE OLD GUI
+-- =====================
 pcall(function()
     local old = game:GetService("CoreGui"):FindFirstChild("PlayerTPGui")
     if old then old:Destroy() end
 end)
 
+-- =====================
+-- GUI ROOT
+-- =====================
 local gui = Instance.new("ScreenGui")
 gui.Name = "PlayerTPGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = game:GetService("CoreGui")
 
--- Shadow
+local FRAME_W, FRAME_H = 200, 460
+
 local shadow = Instance.new("Frame")
-shadow.Size = UDim2.new(0, 184, 0, 400)
+shadow.Size = UDim2.new(0, FRAME_W + 4, 0, FRAME_H + 4)
 shadow.Position = UDim2.new(0, 54, 0, 54)
 shadow.BackgroundColor3 = Color3.fromRGB(5, 2, 20)
 shadow.BackgroundTransparency = 0.45
@@ -32,9 +82,8 @@ shadow.ZIndex = 1
 shadow.Parent = gui
 Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
 
--- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 396)
+frame.Size = UDim2.new(0, FRAME_W, 0, FRAME_H)
 frame.Position = UDim2.new(0, 50, 0, 50)
 frame.BackgroundColor3 = Color3.fromRGB(16, 10, 40)
 frame.BorderSizePixel = 0
@@ -57,7 +106,9 @@ stroke.Thickness = 1.5
 stroke.Transparency = 0.25
 stroke.Parent = frame
 
--- Title bar
+-- =====================
+-- TITLE BAR
+-- =====================
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
 titleBar.Size = UDim2.new(1, 0, 0, 40)
@@ -105,9 +156,7 @@ titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.ZIndex = 5
 titleLabel.Parent = titleBar
 
--- =====================
--- CLOSE BUTTON
--- =====================
+-- Close button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 24, 0, 24)
 closeBtn.Position = UDim2.new(1, -32, 0.5, -12)
@@ -125,25 +174,17 @@ closeBtnStroke.Thickness = 1
 closeBtnStroke.Transparency = 0.4
 closeBtnStroke.Parent = closeBtn
 
-local xLine1 = Instance.new("Frame")
-xLine1.Size = UDim2.new(0, 12, 0, 2)
-xLine1.Position = UDim2.new(0.5, -6, 0.5, -1)
-xLine1.Rotation = 45
-xLine1.BackgroundColor3 = Color3.fromRGB(255, 140, 190)
-xLine1.BorderSizePixel = 0
-xLine1.ZIndex = 7
-xLine1.Parent = closeBtn
-Instance.new("UICorner", xLine1).CornerRadius = UDim.new(1, 0)
-
-local xLine2 = Instance.new("Frame")
-xLine2.Size = UDim2.new(0, 12, 0, 2)
-xLine2.Position = UDim2.new(0.5, -6, 0.5, -1)
-xLine2.Rotation = -45
-xLine2.BackgroundColor3 = Color3.fromRGB(255, 140, 190)
-xLine2.BorderSizePixel = 0
-xLine2.ZIndex = 7
-xLine2.Parent = closeBtn
-Instance.new("UICorner", xLine2).CornerRadius = UDim.new(1, 0)
+for _, rot in ipairs({45, -45}) do
+    local ln = Instance.new("Frame")
+    ln.Size = UDim2.new(0, 12, 0, 2)
+    ln.Position = UDim2.new(0.5, -6, 0.5, -1)
+    ln.Rotation = rot
+    ln.BackgroundColor3 = Color3.fromRGB(255, 140, 190)
+    ln.BorderSizePixel = 0
+    ln.ZIndex = 7
+    ln.Parent = closeBtn
+    Instance.new("UICorner", ln).CornerRadius = UDim.new(1, 0)
+end
 
 closeBtn.MouseEnter:Connect(function()
     TweenService:Create(closeBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(200, 40, 100)}):Play()
@@ -153,13 +194,10 @@ closeBtn.MouseLeave:Connect(function()
     TweenService:Create(closeBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(130, 25, 80)}):Play()
     TweenService:Create(closeBtnStroke, TweenInfo.new(0.12), {Transparency = 0.4}):Play()
 end)
-closeBtn.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
 
 -- =====================
--- HELPER: make a keybind section
--- Returns: section frame, keyText label, bindBtn, isBinding flag (table ref)
+-- KEYBIND SECTION HELPER
 -- =====================
 local function makeBindSection(parent, yPos, labelText, defaultKey, accentColor, accentDim)
     local section = Instance.new("Frame")
@@ -171,26 +209,26 @@ local function makeBindSection(parent, yPos, labelText, defaultKey, accentColor,
     section.Parent = parent
     Instance.new("UICorner", section).CornerRadius = UDim.new(0, 8)
 
-    local sectionStroke = Instance.new("UIStroke")
-    sectionStroke.Color = Color3.fromRGB(65, 30, 120)
-    sectionStroke.Thickness = 1
-    sectionStroke.Transparency = 0.5
-    sectionStroke.Parent = section
+    local ss = Instance.new("UIStroke")
+    ss.Color = Color3.fromRGB(65, 30, 120)
+    ss.Thickness = 1
+    ss.Transparency = 0.5
+    ss.Parent = section
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -8, 0, 18)
-    title.Position = UDim2.new(0, 8, 0, 4)
-    title.Text = labelText
-    title.TextColor3 = Color3.fromRGB(110, 80, 175)
-    title.TextSize = 9
-    title.Font = Enum.Font.GothamBold
-    title.BackgroundTransparency = 1
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.ZIndex = 4
-    title.Parent = section
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -8, 0, 18)
+    lbl.Position = UDim2.new(0, 8, 0, 4)
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(110, 80, 175)
+    lbl.TextSize = 9
+    lbl.Font = Enum.Font.GothamBold
+    lbl.BackgroundTransparency = 1
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 4
+    lbl.Parent = section
 
     local keyDisplay = Instance.new("Frame")
-    keyDisplay.Size = UDim2.new(0, 70, 0, 22)
+    keyDisplay.Size = UDim2.new(0, 72, 0, 22)
     keyDisplay.Position = UDim2.new(0, 8, 0, 22)
     keyDisplay.BackgroundColor3 = Color3.fromRGB(35, 18, 80)
     keyDisplay.BorderSizePixel = 0
@@ -215,8 +253,8 @@ local function makeBindSection(parent, yPos, labelText, defaultKey, accentColor,
     keyText.Parent = keyDisplay
 
     local bindBtn = Instance.new("TextButton")
-    bindBtn.Size = UDim2.new(0, 86, 0, 22)
-    bindBtn.Position = UDim2.new(0, 82, 0, 22)
+    bindBtn.Size = UDim2.new(1, -90, 0, 22)
+    bindBtn.Position = UDim2.new(0, 86, 0, 22)
     bindBtn.Text = "REBIND"
     bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
     bindBtn.TextSize = 10
@@ -237,13 +275,10 @@ local function makeBindSection(parent, yPos, labelText, defaultKey, accentColor,
     return section, keyText, bindBtn, bindBtnStroke, keyStroke, keyDisplay
 end
 
--- =====================
--- TELEPORT KEY BIND SECTION  (y=44)
--- =====================
+-- Teleport keybind
 local _, tpKeyText, tpBindBtn, tpBindBtnStroke, tpKeyStroke, tpKeyDisplay =
     makeBindSection(frame, 44, "TELEPORT KEY", TELEPORT_KEY,
         Color3.fromRGB(120, 60, 240), Color3.fromRGB(55, 22, 130))
-
 local isBindingTP = false
 
 local function setTPBindingMode(active)
@@ -268,26 +303,19 @@ local function setTPBindingMode(active)
 end
 
 tpBindBtn.MouseEnter:Connect(function()
-    if not isBindingTP then
-        TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 30, 160)}):Play()
-    end
+    if not isBindingTP then TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 30, 160)}):Play() end
 end)
 tpBindBtn.MouseLeave:Connect(function()
-    if not isBindingTP then
-        TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
-    end
+    if not isBindingTP then TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play() end
 end)
 tpBindBtn.MouseButton1Click:Connect(function()
     if not isBindingTP then setTPBindingMode(true) end
 end)
 
--- =====================
--- SELECT CLOSEST KEY BIND SECTION  (y=98)
--- =====================
+-- Select Closest keybind
 local _, scKeyText, scBindBtn, scBindBtnStroke, scKeyStroke, scKeyDisplay =
     makeBindSection(frame, 98, "SELECT CLOSEST KEY", SELECT_CLOSEST_KEY,
         Color3.fromRGB(60, 200, 160), Color3.fromRGB(18, 60, 48))
-
 local isBindingSC = false
 
 local function setSCBindingMode(active)
@@ -312,60 +340,49 @@ local function setSCBindingMode(active)
 end
 
 scBindBtn.MouseEnter:Connect(function()
-    if not isBindingSC then
-        TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 80, 62)}):Play()
-    end
+    if not isBindingSC then TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 80, 62)}):Play() end
 end)
 scBindBtn.MouseLeave:Connect(function()
-    if not isBindingSC then
-        TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(18, 60, 48)}):Play()
-    end
+    if not isBindingSC then TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(18, 60, 48)}):Play() end
 end)
 scBindBtn.MouseButton1Click:Connect(function()
     if not isBindingSC then setSCBindingMode(true) end
 end)
 
--- Shared InputBegan for both rebind listeners
+-- Shared rebind listener
+local IGNORED_KEYS = {
+    Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
+    Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
+    Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt,
+    Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
+}
+local function isIgnoredKey(k)
+    for _, ik in ipairs(IGNORED_KEYS) do if k == ik then return true end end
+    return false
+end
+
 UIS.InputBegan:Connect(function(input, gpe)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-    local ignoredKeys = {
-        Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
-        Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
-        Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt,
-        Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
-    }
-    local function isIgnored(k)
-        for _, ik in ipairs(ignoredKeys) do
-            if k == ik then return true end
-        end
-        return false
-    end
-
     if isBindingTP then
-        if isIgnored(input.KeyCode) then return end
+        if isIgnoredKey(input.KeyCode) then return end
         TELEPORT_KEY = input.KeyCode
         setTPBindingMode(false)
         TweenService:Create(tpKeyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 80, 30)}):Play()
-        task.delay(0.4, function()
-            TweenService:Create(tpKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
-        end)
+        task.delay(0.4, function() TweenService:Create(tpKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play() end)
         return
     end
-
     if isBindingSC then
-        if isIgnored(input.KeyCode) then return end
+        if isIgnoredKey(input.KeyCode) then return end
         SELECT_CLOSEST_KEY = input.KeyCode
         setSCBindingMode(false)
         TweenService:Create(scKeyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(20, 80, 60)}):Play()
-        task.delay(0.4, function()
-            TweenService:Create(scKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
-        end)
+        task.delay(0.4, function() TweenService:Create(scKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play() end)
         return
     end
 end)
 
 -- =====================
--- MODE BUTTONS (FIGHT / STEAL)  — shifted down by 54px to make room for new section
+-- FIGHT / STEAL MODES
 -- =====================
 local currentMode = "FIGHT"
 
@@ -377,7 +394,6 @@ modeSection.BorderSizePixel = 0
 modeSection.ZIndex = 3
 modeSection.Parent = frame
 Instance.new("UICorner", modeSection).CornerRadius = UDim.new(0, 8)
-
 local modeSectionStroke = Instance.new("UIStroke")
 modeSectionStroke.Color = Color3.fromRGB(65, 30, 120)
 modeSectionStroke.Thickness = 1
@@ -397,7 +413,6 @@ fightBtn.ZIndex = 4
 fightBtn.AutoButtonColor = false
 fightBtn.Parent = modeSection
 Instance.new("UICorner", fightBtn).CornerRadius = UDim.new(0, 6)
-
 local fightStroke = Instance.new("UIStroke")
 fightStroke.Color = Color3.fromRGB(220, 60, 60)
 fightStroke.Thickness = 1.5
@@ -417,7 +432,6 @@ stealBtn.ZIndex = 4
 stealBtn.AutoButtonColor = false
 stealBtn.Parent = modeSection
 Instance.new("UICorner", stealBtn).CornerRadius = UDim.new(0, 6)
-
 local stealStroke = Instance.new("UIStroke")
 stealStroke.Color = Color3.fromRGB(100, 180, 255)
 stealStroke.Thickness = 1.5
@@ -445,46 +459,150 @@ local function setMode(mode)
     end
 end
 
-STICK_OFFSET = Vector3.new(0, 0, 3)
-
 fightBtn.MouseButton1Click:Connect(function() setMode("FIGHT") end)
 stealBtn.MouseButton1Click:Connect(function() setMode("STEAL") end)
-
 fightBtn.MouseEnter:Connect(function()
-    if currentMode ~= "FIGHT" then
-        TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 15, 15)}):Play()
-    end
+    if currentMode ~= "FIGHT" then TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 15, 15)}):Play() end
 end)
 fightBtn.MouseLeave:Connect(function()
-    if currentMode ~= "FIGHT" then
-        TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
-    end
+    if currentMode ~= "FIGHT" then TweenService:Create(fightBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play() end
 end)
 stealBtn.MouseEnter:Connect(function()
-    if currentMode ~= "STEAL" then
-        TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(20, 25, 60)}):Play()
-    end
+    if currentMode ~= "STEAL" then TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(20, 25, 60)}):Play() end
 end)
 stealBtn.MouseLeave:Connect(function()
-    if currentMode ~= "STEAL" then
-        TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
-    end
+    if currentMode ~= "STEAL" then TweenService:Create(stealBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play() end
 end)
+
+-- =====================
+-- TAB BAR  (PLAYERS | FRIENDS)
+-- =====================
+local currentTab = "PLAYERS"
+
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1, -12, 0, 28)
+tabBar.Position = UDim2.new(0, 6, 0, 192)
+tabBar.BackgroundColor3 = Color3.fromRGB(14, 8, 36)
+tabBar.BorderSizePixel = 0
+tabBar.ZIndex = 3
+tabBar.Parent = frame
+Instance.new("UICorner", tabBar).CornerRadius = UDim.new(0, 8)
+local tabBarStroke = Instance.new("UIStroke")
+tabBarStroke.Color = Color3.fromRGB(55, 25, 110)
+tabBarStroke.Thickness = 1
+tabBarStroke.Transparency = 0.5
+tabBarStroke.Parent = tabBar
+
+local playersTabBtn = Instance.new("TextButton")
+playersTabBtn.Size = UDim2.new(0.5, -3, 1, -6)
+playersTabBtn.Position = UDim2.new(0, 3, 0, 3)
+playersTabBtn.Text = "PLAYERS"
+playersTabBtn.TextSize = 10
+playersTabBtn.Font = Enum.Font.GothamBold
+playersTabBtn.BorderSizePixel = 0
+playersTabBtn.ZIndex = 4
+playersTabBtn.AutoButtonColor = false
+playersTabBtn.Parent = tabBar
+Instance.new("UICorner", playersTabBtn).CornerRadius = UDim.new(0, 6)
+local playersTabStroke = Instance.new("UIStroke")
+playersTabStroke.Thickness = 1
+playersTabStroke.Parent = playersTabBtn
+
+local friendsTabBtn = Instance.new("TextButton")
+friendsTabBtn.Size = UDim2.new(0.5, -3, 1, -6)
+friendsTabBtn.Position = UDim2.new(0.5, 0, 0, 3)
+friendsTabBtn.Text = "FRIENDS"
+friendsTabBtn.TextSize = 10
+friendsTabBtn.Font = Enum.Font.GothamBold
+friendsTabBtn.BorderSizePixel = 0
+friendsTabBtn.ZIndex = 4
+friendsTabBtn.AutoButtonColor = false
+friendsTabBtn.Parent = tabBar
+Instance.new("UICorner", friendsTabBtn).CornerRadius = UDim.new(0, 6)
+local friendsTabStroke = Instance.new("UIStroke")
+friendsTabStroke.Thickness = 1
+friendsTabStroke.Parent = friendsTabBtn
+
+local function updateTabVisuals()
+    if currentTab == "PLAYERS" then
+        playersTabBtn.BackgroundColor3 = Color3.fromRGB(55, 22, 130)
+        playersTabBtn.TextColor3 = Color3.fromRGB(220, 185, 255)
+        playersTabStroke.Color = Color3.fromRGB(140, 70, 255)
+        playersTabStroke.Transparency = 0
+        friendsTabBtn.BackgroundColor3 = Color3.fromRGB(20, 12, 48)
+        friendsTabBtn.TextColor3 = Color3.fromRGB(100, 80, 150)
+        friendsTabStroke.Color = Color3.fromRGB(80, 200, 120)
+        friendsTabStroke.Transparency = 0.7
+    else
+        friendsTabBtn.BackgroundColor3 = Color3.fromRGB(18, 55, 35)
+        friendsTabBtn.TextColor3 = Color3.fromRGB(90, 220, 140)
+        friendsTabStroke.Color = Color3.fromRGB(80, 210, 130)
+        friendsTabStroke.Transparency = 0
+        playersTabBtn.BackgroundColor3 = Color3.fromRGB(20, 12, 48)
+        playersTabBtn.TextColor3 = Color3.fromRGB(100, 80, 150)
+        playersTabStroke.Color = Color3.fromRGB(140, 70, 255)
+        playersTabStroke.Transparency = 0.7
+    end
+end
+updateTabVisuals()
+
+-- =====================
+-- SEARCH BAR
+-- =====================
+local searchBg = Instance.new("Frame")
+searchBg.Size = UDim2.new(1, -12, 0, 26)
+searchBg.Position = UDim2.new(0, 6, 0, 224)
+searchBg.BackgroundColor3 = Color3.fromRGB(20, 11, 50)
+searchBg.BorderSizePixel = 0
+searchBg.ZIndex = 3
+searchBg.Parent = frame
+Instance.new("UICorner", searchBg).CornerRadius = UDim.new(0, 7)
+
+local searchStroke = Instance.new("UIStroke")
+searchStroke.Color = Color3.fromRGB(80, 40, 160)
+searchStroke.Thickness = 1
+searchStroke.Transparency = 0.4
+searchStroke.Parent = searchBg
+
+local searchIconLbl = Instance.new("TextLabel")
+searchIconLbl.Size = UDim2.new(0, 20, 1, 0)
+searchIconLbl.Position = UDim2.new(0, 4, 0, 0)
+searchIconLbl.Text = "🔍"
+searchIconLbl.TextSize = 12
+searchIconLbl.BackgroundTransparency = 1
+searchIconLbl.ZIndex = 5
+searchIconLbl.Parent = searchBg
+
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -30, 1, -4)
+searchBox.Position = UDim2.new(0, 26, 0, 2)
+searchBox.Text = ""
+searchBox.PlaceholderText = "Search name or display name..."
+searchBox.PlaceholderColor3 = Color3.fromRGB(75, 55, 120)
+searchBox.TextColor3 = Color3.fromRGB(210, 185, 255)
+searchBox.TextSize = 10
+searchBox.Font = Enum.Font.Gotham
+searchBox.BackgroundTransparency = 1
+searchBox.ClearTextOnFocus = false
+searchBox.ZIndex = 5
+searchBox.Parent = searchBg
 
 -- Divider
 local div = Instance.new("Frame")
 div.Size = UDim2.new(1, -12, 0, 1)
-div.Position = UDim2.new(0, 6, 0, 192)
+div.Position = UDim2.new(0, 6, 0, 254)
 div.BackgroundColor3 = Color3.fromRGB(75, 35, 150)
 div.BackgroundTransparency = 0.4
 div.BorderSizePixel = 0
 div.ZIndex = 3
 div.Parent = frame
 
--- Player list
+-- =====================
+-- SCROLLING LIST
+-- =====================
 local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(1, -10, 1, -222)
-list.Position = UDim2.new(0, 5, 0, 196)
+list.Size = UDim2.new(1, -10, 1, -288)
+list.Position = UDim2.new(0, 5, 0, 258)
 list.BackgroundTransparency = 1
 list.BorderSizePixel = 0
 list.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -494,16 +612,18 @@ list.ZIndex = 3
 list.Parent = frame
 
 local layout = Instance.new("UIListLayout")
-layout.Parent = list
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Padding = UDim.new(0, 4)
+layout.Parent = list
 
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, 3)
-pad.PaddingBottom = UDim.new(0, 3)
-pad.Parent = list
+local listPad = Instance.new("UIPadding")
+listPad.PaddingTop = UDim.new(0, 3)
+listPad.PaddingBottom = UDim.new(0, 3)
+listPad.Parent = list
 
--- Status bar
+-- =====================
+-- STATUS BAR
+-- =====================
 local statusBg = Instance.new("Frame")
 statusBg.Size = UDim2.new(1, -12, 0, 22)
 statusBg.Position = UDim2.new(0, 6, 1, -26)
@@ -533,10 +653,7 @@ end
 -- =====================
 -- DRAGGING
 -- =====================
-local dragging = false
-local dragInput = nil
-local dragStart = nil
-local startPos = nil
+local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -544,138 +661,376 @@ titleBar.InputBegan:Connect(function(input)
         dragStart = input.Position
         startPos = frame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
-
 titleBar.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
-
 UIS.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        local newPos = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
-        frame.Position = newPos
+        frame.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
         shadow.Position = UDim2.new(0, startPos.X.Offset + delta.X + 4, 0, startPos.Y.Offset + delta.Y + 4)
     end
 end)
 
 -- =====================
--- PLAYER BUTTONS
+-- STATE
 -- =====================
 local selectedPlayer = nil
 local stickActive = false
+local searchQuery = ""
 
-local function refresh()
+-- forward declare so rows can call it
+local refresh
+
+-- =====================
+-- ROW BUILDERS
+-- =====================
+
+-- PLAYERS tab row: shows display name + @username, friend toggle button
+local function makePlayerRow(plr)
+    local isSelected = (selectedPlayer == plr)
+    local dispName = plr.DisplayName
+    local userName = plr.Name
+    local hasDiff = string.lower(dispName) ~= string.lower(userName)
+    local rowH = hasDiff and 44 or 32
+    local frd = isFriend(plr)
+
+    local btn = Instance.new("TextButton")
+    btn.Name = userName
+    btn.Size = UDim2.new(1, 0, 0, rowH)
+    btn.Text = ""
+    btn.BackgroundColor3 = isSelected and Color3.fromRGB(50, 18, 120) or Color3.fromRGB(26, 14, 55)
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 4
+    btn.AutoButtonColor = false
+    btn.Parent = list
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Color = isSelected and Color3.fromRGB(140, 70, 255) or Color3.fromRGB(60, 28, 110)
+    btnStroke.Thickness = 1
+    btnStroke.Transparency = isSelected and 0 or 0.4
+    btnStroke.Parent = btn
+
+    -- Avatar circle with first letter of display name
+    local iconBg = Instance.new("Frame")
+    iconBg.Size = UDim2.new(0, 24, 0, 24)
+    iconBg.Position = UDim2.new(0, 6, 0.5, -12)
+    iconBg.BackgroundColor3 = isSelected and Color3.fromRGB(120, 50, 255) or Color3.fromRGB(70, 32, 140)
+    iconBg.BorderSizePixel = 0
+    iconBg.ZIndex = 5
+    iconBg.Parent = btn
+    Instance.new("UICorner", iconBg).CornerRadius = UDim.new(1, 0)
+
+    local iconTxt = Instance.new("TextLabel")
+    iconTxt.Size = UDim2.new(1, 0, 1, 0)
+    iconTxt.Text = string.upper(string.sub(dispName, 1, 1))
+    iconTxt.TextColor3 = Color3.fromRGB(220, 185, 255)
+    iconTxt.TextSize = 10
+    iconTxt.Font = Enum.Font.GothamBold
+    iconTxt.BackgroundTransparency = 1
+    iconTxt.ZIndex = 6
+    iconTxt.Parent = iconBg
+
+    -- Name column (sits between icon and friend btn)
+    local nameCol = Instance.new("Frame")
+    nameCol.Size = UDim2.new(1, -68, 1, 0)
+    nameCol.Position = UDim2.new(0, 36, 0, 0)
+    nameCol.BackgroundTransparency = 1
+    nameCol.ZIndex = 5
+    nameCol.Parent = btn
+
+    -- Display name (bold, primary)
+    local dispLbl = Instance.new("TextLabel")
+    dispLbl.Size = UDim2.new(1, 0, 0, hasDiff and 22 or 32)
+    dispLbl.Position = UDim2.new(0, 0, 0, hasDiff and 3 or 0)
+    dispLbl.Text = dispName
+    dispLbl.TextColor3 = isSelected and Color3.fromRGB(225, 195, 255) or Color3.fromRGB(185, 160, 230)
+    dispLbl.TextSize = 11
+    dispLbl.Font = Enum.Font.GothamBold
+    dispLbl.BackgroundTransparency = 1
+    dispLbl.TextXAlignment = Enum.TextXAlignment.Left
+    dispLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    dispLbl.ZIndex = 6
+    dispLbl.Parent = nameCol
+
+    -- @username subtitle (only shown when different from display name)
+    if hasDiff then
+        local userLbl = Instance.new("TextLabel")
+        userLbl.Size = UDim2.new(1, 0, 0, 14)
+        userLbl.Position = UDim2.new(0, 0, 0, 26)
+        userLbl.Text = "@" .. userName
+        userLbl.TextColor3 = isSelected and Color3.fromRGB(155, 120, 215) or Color3.fromRGB(105, 80, 155)
+        userLbl.TextSize = 9
+        userLbl.Font = Enum.Font.Gotham
+        userLbl.BackgroundTransparency = 1
+        userLbl.TextXAlignment = Enum.TextXAlignment.Left
+        userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        userLbl.ZIndex = 6
+        userLbl.Parent = nameCol
+    end
+
+    -- Friend toggle button (shield = friended, + = not friended)
+    local friendToggle = Instance.new("TextButton")
+    friendToggle.Size = UDim2.new(0, 28, 0, 28)
+    friendToggle.Position = UDim2.new(1, -32, 0.5, -14)
+    friendToggle.Text = frd and "🛡" or "+"
+    friendToggle.TextSize = frd and 14 or 18
+    friendToggle.Font = Enum.Font.GothamBold
+    friendToggle.TextColor3 = frd and Color3.fromRGB(80, 210, 130) or Color3.fromRGB(130, 95, 190)
+    friendToggle.BackgroundColor3 = frd and Color3.fromRGB(18, 52, 32) or Color3.fromRGB(30, 16, 65)
+    friendToggle.BorderSizePixel = 0
+    friendToggle.ZIndex = 7
+    friendToggle.AutoButtonColor = false
+    friendToggle.Parent = btn
+    Instance.new("UICorner", friendToggle).CornerRadius = UDim.new(0, 6)
+
+    local fToggleStroke = Instance.new("UIStroke")
+    fToggleStroke.Color = frd and Color3.fromRGB(70, 190, 115) or Color3.fromRGB(90, 55, 160)
+    fToggleStroke.Thickness = 1
+    fToggleStroke.Transparency = frd and 0.2 or 0.5
+    fToggleStroke.Parent = friendToggle
+
+    friendToggle.MouseEnter:Connect(function()
+        TweenService:Create(friendToggle, TweenInfo.new(0.1), {
+            BackgroundColor3 = isFriend(plr) and Color3.fromRGB(28, 75, 48) or Color3.fromRGB(46, 24, 92)
+        }):Play()
+    end)
+    friendToggle.MouseLeave:Connect(function()
+        TweenService:Create(friendToggle, TweenInfo.new(0.1), {
+            BackgroundColor3 = isFriend(plr) and Color3.fromRGB(18, 52, 32) or Color3.fromRGB(30, 16, 65)
+        }):Play()
+    end)
+    friendToggle.MouseButton1Click:Connect(function()
+        toggleFriend(plr)
+        refresh()
+    end)
+
+    -- Row click (select player as target)
+    btn.MouseEnter:Connect(function()
+        if selectedPlayer ~= plr then
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(36, 20, 75)}):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if selectedPlayer ~= plr then
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(26, 14, 55)}):Play()
+        end
+    end)
+    btn.MouseButton1Click:Connect(function()
+        stickActive = false
+        TweenService:Create(stroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
+        if selectedPlayer == plr then
+            selectedPlayer = nil
+            setStatus("No target selected")
+        else
+            selectedPlayer = plr
+            local statusText = "→ " .. dispName
+            if hasDiff then statusText = statusText .. " (@" .. userName .. ")" end
+            setStatus(statusText, Color3.fromRGB(155, 95, 255))
+        end
+        refresh()
+    end)
+end
+
+-- FRIENDS tab row: shows saved friend, remove button, "(offline)" if not in server
+local function makeFriendRow(username)
+    local plr = Players:FindFirstChild(username)
+    local dispName = plr and plr.DisplayName or username
+    local hasDiff = plr and (string.lower(plr.DisplayName) ~= string.lower(username))
+    local inServer = plr ~= nil
+
+    local displayStr
+    if hasDiff then
+        displayStr = dispName .. "  @" .. username
+    else
+        displayStr = username
+    end
+
+    local row = Instance.new("Frame")
+    row.Name = username
+    row.Size = UDim2.new(1, 0, 0, 34)
+    row.BackgroundColor3 = Color3.fromRGB(15, 38, 25)
+    row.BorderSizePixel = 0
+    row.ZIndex = 4
+    row.Parent = list
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+
+    local rowStroke = Instance.new("UIStroke")
+    rowStroke.Color = Color3.fromRGB(55, 175, 95)
+    rowStroke.Thickness = 1
+    rowStroke.Transparency = inServer and 0.4 or 0.7
+    rowStroke.Parent = row
+
+    local shieldLbl = Instance.new("TextLabel")
+    shieldLbl.Size = UDim2.new(0, 26, 1, 0)
+    shieldLbl.Position = UDim2.new(0, 5, 0, 0)
+    shieldLbl.Text = "🛡"
+    shieldLbl.TextSize = 14
+    shieldLbl.BackgroundTransparency = 1
+    shieldLbl.ZIndex = 5
+    shieldLbl.Parent = row
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(1, -68, 1, 0)
+    nameLbl.Position = UDim2.new(0, 33, 0, 0)
+    nameLbl.Text = displayStr .. (inServer and "" or "  (not in server)")
+    nameLbl.TextColor3 = inServer and Color3.fromRGB(95, 215, 140) or Color3.fromRGB(65, 115, 85)
+    nameLbl.TextSize = 10
+    nameLbl.Font = inServer and Enum.Font.Gotham or Enum.Font.Gotham
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLbl.ZIndex = 5
+    nameLbl.Parent = row
+
+    -- Remove button
+    local removeBtn = Instance.new("TextButton")
+    removeBtn.Size = UDim2.new(0, 28, 0, 22)
+    removeBtn.Position = UDim2.new(1, -32, 0.5, -11)
+    removeBtn.Text = "✕"
+    removeBtn.TextSize = 11
+    removeBtn.Font = Enum.Font.GothamBold
+    removeBtn.TextColor3 = Color3.fromRGB(220, 80, 100)
+    removeBtn.BackgroundColor3 = Color3.fromRGB(55, 15, 22)
+    removeBtn.BorderSizePixel = 0
+    removeBtn.ZIndex = 6
+    removeBtn.AutoButtonColor = false
+    removeBtn.Parent = row
+    Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 6)
+
+    local removeBtnStroke = Instance.new("UIStroke")
+    removeBtnStroke.Color = Color3.fromRGB(200, 50, 70)
+    removeBtnStroke.Thickness = 1
+    removeBtnStroke.Transparency = 0.4
+    removeBtnStroke.Parent = removeBtn
+
+    removeBtn.MouseEnter:Connect(function()
+        TweenService:Create(removeBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 20, 28)}):Play()
+    end)
+    removeBtn.MouseLeave:Connect(function()
+        TweenService:Create(removeBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 15, 22)}):Play()
+    end)
+    removeBtn.MouseButton1Click:Connect(function()
+        friendsSet[string.lower(username)] = nil
+        saveFriends()
+        refresh()
+    end)
+end
+
+-- =====================
+-- REFRESH (clears + rebuilds list)
+-- =====================
+refresh = function()
     for _, v in ipairs(list:GetChildren()) do
-        if v:IsA("TextButton") or (v:IsA("TextLabel") and v.Name == "EmptyLabel") then
+        if not v:IsA("UIListLayout") and not v:IsA("UIPadding") then
             v:Destroy()
         end
     end
 
-    local count = 0
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= lp then
-            count += 1
-            local isSelected = (selectedPlayer == plr)
+    local query = string.lower(searchQuery)
 
-            local btn = Instance.new("TextButton")
-            btn.Name = plr.Name
-            btn.Size = UDim2.new(1, 0, 0, 32)
-            btn.Text = ""
-            btn.BackgroundColor3 = isSelected and Color3.fromRGB(50, 18, 120) or Color3.fromRGB(26, 14, 55)
-            btn.BorderSizePixel = 0
-            btn.ZIndex = 4
-            btn.AutoButtonColor = false
-            btn.Parent = list
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-
-            local btnStroke = Instance.new("UIStroke")
-            btnStroke.Color = isSelected and Color3.fromRGB(140, 70, 255) or Color3.fromRGB(60, 28, 110)
-            btnStroke.Thickness = 1
-            btnStroke.Transparency = isSelected and 0 or 0.4
-            btnStroke.Parent = btn
-
-            local iconFrame = Instance.new("Frame")
-            iconFrame.Size = UDim2.new(0, 20, 0, 20)
-            iconFrame.Position = UDim2.new(0, 6, 0.5, -10)
-            iconFrame.BackgroundColor3 = isSelected and Color3.fromRGB(120, 50, 255) or Color3.fromRGB(70, 32, 140)
-            iconFrame.BorderSizePixel = 0
-            iconFrame.ZIndex = 5
-            iconFrame.Parent = btn
-            Instance.new("UICorner", iconFrame).CornerRadius = UDim.new(1, 0)
-
-            local iconTxt = Instance.new("TextLabel")
-            iconTxt.Size = UDim2.new(1, 0, 1, 0)
-            iconTxt.Text = string.upper(string.sub(plr.Name, 1, 1))
-            iconTxt.TextColor3 = Color3.fromRGB(220, 185, 255)
-            iconTxt.TextSize = 9
-            iconTxt.Font = Enum.Font.GothamBold
-            iconTxt.BackgroundTransparency = 1
-            iconTxt.ZIndex = 6
-            iconTxt.Parent = iconFrame
-
-            local nameLbl = Instance.new("TextLabel")
-            nameLbl.Name = "NameLabel"
-            nameLbl.Size = UDim2.new(1, -36, 1, 0)
-            nameLbl.Position = UDim2.new(0, 32, 0, 0)
-            nameLbl.Text = plr.Name
-            nameLbl.TextColor3 = isSelected and Color3.fromRGB(220, 185, 255) or Color3.fromRGB(170, 145, 215)
-            nameLbl.TextSize = 11
-            nameLbl.Font = Enum.Font.Gotham
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-            nameLbl.ZIndex = 5
-            nameLbl.Parent = btn
-
-            btn.MouseEnter:Connect(function()
-                if selectedPlayer ~= plr then
-                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(36, 20, 75)}):Play()
+    if currentTab == "PLAYERS" then
+        local count = 0
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.UserId ~= lp.UserId then
+                local matchesSearch = query == ""
+                    or string.find(string.lower(plr.Name), query, 1, true)
+                    or string.find(string.lower(plr.DisplayName), query, 1, true)
+                if matchesSearch then
+                    count += 1
+                    makePlayerRow(plr)
                 end
-            end)
-            btn.MouseLeave:Connect(function()
-                if selectedPlayer ~= plr then
-                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(26, 14, 55)}):Play()
-                end
-            end)
-
-            btn.MouseButton1Click:Connect(function()
-                stickActive = false  -- cancel any active stick when manually changing target
-                if selectedPlayer == plr then
-                    selectedPlayer = nil
-                    setStatus("No target selected")
-                else
-                    selectedPlayer = plr
-                    setStatus("→ " .. plr.Name, Color3.fromRGB(155, 95, 255))
-                end
-                TweenService:Create(stroke, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
-                refresh()
-            end)
+            end
         end
-    end
+        if count == 0 then
+            local empty = Instance.new("TextLabel")
+            empty.Name = "_empty"
+            empty.Size = UDim2.new(1, 0, 0, 30)
+            empty.Text = query ~= "" and "No results for \""..searchQuery.."\"" or "No other players"
+            empty.TextColor3 = Color3.fromRGB(80, 55, 115)
+            empty.TextSize = 10
+            empty.Font = Enum.Font.Gotham
+            empty.BackgroundTransparency = 1
+            empty.ZIndex = 4
+            empty.Parent = list
+        end
 
-    if count == 0 then
-        local empty = Instance.new("TextLabel")
-        empty.Name = "EmptyLabel"
-        empty.Size = UDim2.new(1, 0, 0, 30)
-        empty.Text = "No other players"
-        empty.TextColor3 = Color3.fromRGB(80, 55, 115)
-        empty.TextSize = 11
-        empty.Font = Enum.Font.Gotham
-        empty.BackgroundTransparency = 1
-        empty.ZIndex = 4
-        empty.Parent = list
+    else -- FRIENDS tab
+        local names = {}
+        for name in pairs(friendsSet) do table.insert(names, name) end
+        table.sort(names)
+
+        local count = 0
+        for _, name in ipairs(names) do
+            local matchesSearch = query == "" or string.find(name, query, 1, true)
+            if not matchesSearch then
+                local plr = Players:FindFirstChild(name)
+                if plr and string.find(string.lower(plr.DisplayName), query, 1, true) then
+                    matchesSearch = true
+                end
+            end
+            if matchesSearch then
+                count += 1
+                makeFriendRow(name)
+            end
+        end
+        if count == 0 then
+            local empty = Instance.new("TextLabel")
+            empty.Name = "_empty"
+            empty.Size = UDim2.new(1, 0, 0, 44)
+            empty.Text = query ~= "" and "No results for \""..searchQuery.."\"" or "No friends added.\nPress + on a player to protect\nthem from Select Closest."
+            empty.TextColor3 = Color3.fromRGB(65, 125, 85)
+            empty.TextSize = 10
+            empty.Font = Enum.Font.Gotham
+            empty.BackgroundTransparency = 1
+            empty.TextWrapped = true
+            empty.ZIndex = 4
+            empty.Parent = list
+        end
     end
 
     task.wait()
     list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
 end
+
+-- Tab switching
+playersTabBtn.MouseButton1Click:Connect(function()
+    if currentTab ~= "PLAYERS" then
+        currentTab = "PLAYERS"
+        searchBox.Text = ""
+        searchQuery = ""
+        updateTabVisuals()
+        refresh()
+    end
+end)
+friendsTabBtn.MouseButton1Click:Connect(function()
+    if currentTab ~= "FRIENDS" then
+        currentTab = "FRIENDS"
+        searchBox.Text = ""
+        searchQuery = ""
+        updateTabVisuals()
+        refresh()
+    end
+end)
+
+-- Search box
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    searchQuery = searchBox.Text
+    refresh()
+end)
+searchBox.Focused:Connect(function()
+    TweenService:Create(searchStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(140, 80, 255), Transparency = 0}):Play()
+end)
+searchBox.FocusLost:Connect(function()
+    TweenService:Create(searchStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(80, 40, 160), Transparency = 0.4}):Play()
+end)
 
 refresh()
 
@@ -686,6 +1041,7 @@ end)
 Players.PlayerRemoving:Connect(function(plr)
     if selectedPlayer == plr then
         selectedPlayer = nil
+        stickActive = false
         setStatus("No target selected")
     end
     task.wait(0.1)
@@ -693,19 +1049,21 @@ Players.PlayerRemoving:Connect(function(plr)
 end)
 
 -- =====================
--- SELECT CLOSEST LOGIC
+-- SELECT CLOSEST  (skips friends)
 -- =====================
 local function selectClosestPlayer()
     local myChar = lp.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
 
-    local closest = nil
-    local closestDist = math.huge
+    local closest, closestDist = nil, math.huge
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        -- exclude local player by UserId AND by character reference to be safe
-        if plr.UserId ~= lp.UserId and plr.Character and plr.Character ~= myChar then
+        if plr.UserId ~= lp.UserId
+            and plr.Character
+            and plr.Character ~= myChar
+            and not isFriend(plr)   -- skip friends!
+        then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             if hrp and hrp ~= myHRP then
                 local dist = (hrp.Position - myHRP.Position).Magnitude
@@ -718,17 +1076,20 @@ local function selectClosestPlayer()
     end
 
     if closest then
-        stickActive = false  -- cancel any active stick when auto-selecting closest
+        stickActive = false
         selectedPlayer = closest
-        setStatus("◎ Closest: " .. closest.Name, Color3.fromRGB(60, 220, 170))
-        -- Flash the GUI stroke teal briefly
+        local dn = closest.DisplayName
+        local hasDiff = string.lower(dn) ~= string.lower(closest.Name)
+        local statusText = "◎ Closest: " .. dn
+        if hasDiff then statusText = statusText .. " (@" .. closest.Name .. ")" end
+        setStatus(statusText, Color3.fromRGB(60, 220, 170))
         TweenService:Create(stroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(60, 220, 170), Transparency = 0}):Play()
         task.delay(0.5, function()
             TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
         end)
         refresh()
     else
-        setStatus("No players found", Color3.fromRGB(200, 80, 80))
+        setStatus("No targets (all protected?)", Color3.fromRGB(200, 80, 80))
     end
 end
 
@@ -745,11 +1106,14 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- =====================
+-- HOTKEYS
+-- =====================
 UIS.InputBegan:Connect(function(input, gpe)
     if isBindingTP or isBindingSC then return end
     if gpe then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
-    -- Select Closest key (no gpe check so it always fires)
     if input.KeyCode == SELECT_CLOSEST_KEY then
         selectClosestPlayer()
         return
@@ -762,7 +1126,7 @@ UIS.InputBegan:Connect(function(input, gpe)
             if tHRP and mHRP then
                 mHRP.CFrame = tHRP.CFrame * CFrame.new(STICK_OFFSET)
                 stickActive = true
-                setStatus("⬡ Sticking: " .. selectedPlayer.Name, Color3.fromRGB(90, 230, 160))
+                setStatus("⬡ Sticking: " .. selectedPlayer.DisplayName, Color3.fromRGB(90, 230, 160))
                 TweenService:Create(stroke, TweenInfo.new(0.25), {Color = Color3.fromRGB(80, 220, 150), Transparency = 0}):Play()
             end
         end
@@ -774,7 +1138,11 @@ UIS.InputEnded:Connect(function(input)
     if input.KeyCode == TELEPORT_KEY then
         stickActive = false
         if selectedPlayer then
-            setStatus("→ " .. selectedPlayer.Name, Color3.fromRGB(155, 95, 255))
+            local dn = selectedPlayer.DisplayName
+            local hasDiff = string.lower(dn) ~= string.lower(selectedPlayer.Name)
+            local statusText = "→ " .. dn
+            if hasDiff then statusText = statusText .. " (@" .. selectedPlayer.Name .. ")" end
+            setStatus(statusText, Color3.fromRGB(155, 95, 255))
         else
             setStatus("No target selected")
         end
