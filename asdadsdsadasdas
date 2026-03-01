@@ -704,9 +704,10 @@ local function selectClosestPlayer()
     local closestDist = math.huge
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= lp and plr.Character then
+        -- exclude local player by UserId AND by character reference to be safe
+        if plr.UserId ~= lp.UserId and plr.Character and plr.Character ~= myChar then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
+            if hrp and hrp ~= myHRP then
                 local dist = (hrp.Position - myHRP.Position).Magnitude
                 if dist < closestDist then
                     closestDist = dist
