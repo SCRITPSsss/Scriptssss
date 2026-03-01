@@ -5,7 +5,8 @@ local TweenService = game:GetService("TweenService")
 local lp = Players.LocalPlayer
 
 -- CONFIG
-local TELEPORT_KEY = Enum.KeyCode.U
+local TELEPORT_KEY = Enum.KeyCode.K
+local SELECT_CLOSEST_KEY = Enum.KeyCode.R   -- default keybind for selecting closest player
 local STICK_OFFSET = Vector3.new(0, 0, 2)
 
 -- Remove old GUI if exists
@@ -22,7 +23,7 @@ gui.Parent = game:GetService("CoreGui")
 
 -- Shadow
 local shadow = Instance.new("Frame")
-shadow.Size = UDim2.new(0, 184, 0, 340)
+shadow.Size = UDim2.new(0, 184, 0, 400)
 shadow.Position = UDim2.new(0, 54, 0, 54)
 shadow.BackgroundColor3 = Color3.fromRGB(5, 2, 20)
 shadow.BackgroundTransparency = 0.45
@@ -33,7 +34,7 @@ Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 16)
 
 -- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 336)
+frame.Size = UDim2.new(0, 180, 0, 396)
 frame.Position = UDim2.new(0, 50, 0, 50)
 frame.BackgroundColor3 = Color3.fromRGB(16, 10, 40)
 frame.BorderSizePixel = 0
@@ -105,7 +106,7 @@ titleLabel.ZIndex = 5
 titleLabel.Parent = titleBar
 
 -- =====================
--- CLOSE BUTTON (proper X)
+-- CLOSE BUTTON
 -- =====================
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 24, 0, 24)
@@ -157,150 +158,220 @@ closeBtn.MouseButton1Click:Connect(function()
 end)
 
 -- =====================
--- KEY BIND SECTION
+-- HELPER: make a keybind section
+-- Returns: section frame, keyText label, bindBtn, isBinding flag (table ref)
 -- =====================
-local bindSection = Instance.new("Frame")
-bindSection.Size = UDim2.new(1, -12, 0, 50)
-bindSection.Position = UDim2.new(0, 6, 0, 44)
-bindSection.BackgroundColor3 = Color3.fromRGB(20, 11, 48)
-bindSection.BorderSizePixel = 0
-bindSection.ZIndex = 3
-bindSection.Parent = frame
-Instance.new("UICorner", bindSection).CornerRadius = UDim.new(0, 8)
+local function makeBindSection(parent, yPos, labelText, defaultKey, accentColor, accentDim)
+    local section = Instance.new("Frame")
+    section.Size = UDim2.new(1, -12, 0, 50)
+    section.Position = UDim2.new(0, 6, 0, yPos)
+    section.BackgroundColor3 = Color3.fromRGB(20, 11, 48)
+    section.BorderSizePixel = 0
+    section.ZIndex = 3
+    section.Parent = parent
+    Instance.new("UICorner", section).CornerRadius = UDim.new(0, 8)
 
-local bindSectionStroke = Instance.new("UIStroke")
-bindSectionStroke.Color = Color3.fromRGB(65, 30, 120)
-bindSectionStroke.Thickness = 1
-bindSectionStroke.Transparency = 0.5
-bindSectionStroke.Parent = bindSection
+    local sectionStroke = Instance.new("UIStroke")
+    sectionStroke.Color = Color3.fromRGB(65, 30, 120)
+    sectionStroke.Thickness = 1
+    sectionStroke.Transparency = 0.5
+    sectionStroke.Parent = section
 
-local bindTitle = Instance.new("TextLabel")
-bindTitle.Size = UDim2.new(1, -8, 0, 18)
-bindTitle.Position = UDim2.new(0, 8, 0, 4)
-bindTitle.Text = "TELEPORT KEY"
-bindTitle.TextColor3 = Color3.fromRGB(110, 80, 175)
-bindTitle.TextSize = 9
-bindTitle.Font = Enum.Font.GothamBold
-bindTitle.BackgroundTransparency = 1
-bindTitle.TextXAlignment = Enum.TextXAlignment.Left
-bindTitle.ZIndex = 4
-bindTitle.Parent = bindSection
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -8, 0, 18)
+    title.Position = UDim2.new(0, 8, 0, 4)
+    title.Text = labelText
+    title.TextColor3 = Color3.fromRGB(110, 80, 175)
+    title.TextSize = 9
+    title.Font = Enum.Font.GothamBold
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 4
+    title.Parent = section
 
-local keyDisplay = Instance.new("Frame")
-keyDisplay.Size = UDim2.new(0, 70, 0, 22)
-keyDisplay.Position = UDim2.new(0, 8, 0, 22)
-keyDisplay.BackgroundColor3 = Color3.fromRGB(35, 18, 80)
-keyDisplay.BorderSizePixel = 0
-keyDisplay.ZIndex = 4
-keyDisplay.Parent = bindSection
-Instance.new("UICorner", keyDisplay).CornerRadius = UDim.new(0, 6)
+    local keyDisplay = Instance.new("Frame")
+    keyDisplay.Size = UDim2.new(0, 70, 0, 22)
+    keyDisplay.Position = UDim2.new(0, 8, 0, 22)
+    keyDisplay.BackgroundColor3 = Color3.fromRGB(35, 18, 80)
+    keyDisplay.BorderSizePixel = 0
+    keyDisplay.ZIndex = 4
+    keyDisplay.Parent = section
+    Instance.new("UICorner", keyDisplay).CornerRadius = UDim.new(0, 6)
 
-local keyStroke = Instance.new("UIStroke")
-keyStroke.Color = Color3.fromRGB(120, 60, 240)
-keyStroke.Thickness = 1
-keyStroke.Transparency = 0.2
-keyStroke.Parent = keyDisplay
+    local keyStroke = Instance.new("UIStroke")
+    keyStroke.Color = accentColor
+    keyStroke.Thickness = 1
+    keyStroke.Transparency = 0.2
+    keyStroke.Parent = keyDisplay
 
-local keyText = Instance.new("TextLabel")
-keyText.Size = UDim2.new(1, 0, 1, 0)
-keyText.Text = TELEPORT_KEY.Name
-keyText.TextColor3 = Color3.fromRGB(200, 165, 255)
-keyText.TextSize = 11
-keyText.Font = Enum.Font.GothamBold
-keyText.BackgroundTransparency = 1
-keyText.ZIndex = 5
-keyText.Parent = keyDisplay
+    local keyText = Instance.new("TextLabel")
+    keyText.Size = UDim2.new(1, 0, 1, 0)
+    keyText.Text = defaultKey.Name
+    keyText.TextColor3 = Color3.fromRGB(200, 165, 255)
+    keyText.TextSize = 11
+    keyText.Font = Enum.Font.GothamBold
+    keyText.BackgroundTransparency = 1
+    keyText.ZIndex = 5
+    keyText.Parent = keyDisplay
 
-local bindBtn = Instance.new("TextButton")
-bindBtn.Size = UDim2.new(0, 86, 0, 22)
-bindBtn.Position = UDim2.new(0, 82, 0, 22)
-bindBtn.Text = "REBIND"
-bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
-bindBtn.TextSize = 10
-bindBtn.Font = Enum.Font.GothamBold
-bindBtn.BackgroundColor3 = Color3.fromRGB(55, 22, 130)
-bindBtn.BorderSizePixel = 0
-bindBtn.ZIndex = 4
-bindBtn.AutoButtonColor = false
-bindBtn.Parent = bindSection
-Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 6)
+    local bindBtn = Instance.new("TextButton")
+    bindBtn.Size = UDim2.new(0, 86, 0, 22)
+    bindBtn.Position = UDim2.new(0, 82, 0, 22)
+    bindBtn.Text = "REBIND"
+    bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
+    bindBtn.TextSize = 10
+    bindBtn.Font = Enum.Font.GothamBold
+    bindBtn.BackgroundColor3 = accentDim
+    bindBtn.BorderSizePixel = 0
+    bindBtn.ZIndex = 4
+    bindBtn.AutoButtonColor = false
+    bindBtn.Parent = section
+    Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 6)
 
-local bindBtnStroke = Instance.new("UIStroke")
-bindBtnStroke.Color = Color3.fromRGB(120, 60, 240)
-bindBtnStroke.Thickness = 1
-bindBtnStroke.Transparency = 0.3
-bindBtnStroke.Parent = bindBtn
+    local bindBtnStroke = Instance.new("UIStroke")
+    bindBtnStroke.Color = accentColor
+    bindBtnStroke.Thickness = 1
+    bindBtnStroke.Transparency = 0.3
+    bindBtnStroke.Parent = bindBtn
 
-local isBinding = false
+    return section, keyText, bindBtn, bindBtnStroke, keyStroke, keyDisplay
+end
 
-local function setBindingMode(active)
-    isBinding = active
+-- =====================
+-- TELEPORT KEY BIND SECTION  (y=44)
+-- =====================
+local _, tpKeyText, tpBindBtn, tpBindBtnStroke, tpKeyStroke, tpKeyDisplay =
+    makeBindSection(frame, 44, "TELEPORT KEY", TELEPORT_KEY,
+        Color3.fromRGB(120, 60, 240), Color3.fromRGB(55, 22, 130))
+
+local isBindingTP = false
+
+local function setTPBindingMode(active)
+    isBindingTP = active
     if active then
-        bindBtn.Text = "PRESS A KEY..."
-        bindBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
-        TweenService:Create(bindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 55, 10)}):Play()
-        TweenService:Create(bindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
-        TweenService:Create(keyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
-        keyText.TextColor3 = Color3.fromRGB(255, 220, 100)
-        keyText.Text = "?"
+        tpBindBtn.Text = "PRESS A KEY..."
+        tpBindBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
+        TweenService:Create(tpBindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 55, 10)}):Play()
+        TweenService:Create(tpBindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        TweenService:Create(tpKeyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        tpKeyText.TextColor3 = Color3.fromRGB(255, 220, 100)
+        tpKeyText.Text = "?"
     else
-        bindBtn.Text = "REBIND"
-        bindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
-        TweenService:Create(bindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
-        TweenService:Create(bindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
-        TweenService:Create(keyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
-        keyText.TextColor3 = Color3.fromRGB(200, 165, 255)
-        keyText.Text = TELEPORT_KEY.Name
+        tpBindBtn.Text = "REBIND"
+        tpBindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
+        TweenService:Create(tpBindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
+        TweenService:Create(tpBindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
+        TweenService:Create(tpKeyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(120, 60, 240)}):Play()
+        tpKeyText.TextColor3 = Color3.fromRGB(200, 165, 255)
+        tpKeyText.Text = TELEPORT_KEY.Name
     end
 end
 
-bindBtn.MouseEnter:Connect(function()
-    if not isBinding then
-        TweenService:Create(bindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 30, 160)}):Play()
+tpBindBtn.MouseEnter:Connect(function()
+    if not isBindingTP then
+        TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 30, 160)}):Play()
     end
 end)
-bindBtn.MouseLeave:Connect(function()
-    if not isBinding then
-        TweenService:Create(bindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
+tpBindBtn.MouseLeave:Connect(function()
+    if not isBindingTP then
+        TweenService:Create(tpBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 22, 130)}):Play()
     end
 end)
-
-bindBtn.MouseButton1Click:Connect(function()
-    if not isBinding then
-        setBindingMode(true)
-    end
+tpBindBtn.MouseButton1Click:Connect(function()
+    if not isBindingTP then setTPBindingMode(true) end
 end)
 
+-- =====================
+-- SELECT CLOSEST KEY BIND SECTION  (y=98)
+-- =====================
+local _, scKeyText, scBindBtn, scBindBtnStroke, scKeyStroke, scKeyDisplay =
+    makeBindSection(frame, 98, "SELECT CLOSEST KEY", SELECT_CLOSEST_KEY,
+        Color3.fromRGB(60, 200, 160), Color3.fromRGB(18, 60, 48))
+
+local isBindingSC = false
+
+local function setSCBindingMode(active)
+    isBindingSC = active
+    if active then
+        scBindBtn.Text = "PRESS A KEY..."
+        scBindBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
+        TweenService:Create(scBindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 55, 10)}):Play()
+        TweenService:Create(scBindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        TweenService:Create(scKeyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(255, 200, 60)}):Play()
+        scKeyText.TextColor3 = Color3.fromRGB(255, 220, 100)
+        scKeyText.Text = "?"
+    else
+        scBindBtn.Text = "REBIND"
+        scBindBtn.TextColor3 = Color3.fromRGB(200, 165, 255)
+        TweenService:Create(scBindBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 60, 48)}):Play()
+        TweenService:Create(scBindBtnStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(60, 200, 160)}):Play()
+        TweenService:Create(scKeyStroke, TweenInfo.new(0.15), {Color = Color3.fromRGB(60, 200, 160)}):Play()
+        scKeyText.TextColor3 = Color3.fromRGB(200, 165, 255)
+        scKeyText.Text = SELECT_CLOSEST_KEY.Name
+    end
+end
+
+scBindBtn.MouseEnter:Connect(function()
+    if not isBindingSC then
+        TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 80, 62)}):Play()
+    end
+end)
+scBindBtn.MouseLeave:Connect(function()
+    if not isBindingSC then
+        TweenService:Create(scBindBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(18, 60, 48)}):Play()
+    end
+end)
+scBindBtn.MouseButton1Click:Connect(function()
+    if not isBindingSC then setSCBindingMode(true) end
+end)
+
+-- Shared InputBegan for both rebind listeners
 UIS.InputBegan:Connect(function(input, gpe)
-    if isBinding then
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-        local ignoredKeys = {
-            Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
-            Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
-            Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt,
-            Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
-        }
-        for _, k in ipairs(ignoredKeys) do
-            if input.KeyCode == k then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    local ignoredKeys = {
+        Enum.KeyCode.Unknown, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift,
+        Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
+        Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt,
+        Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
+    }
+    local function isIgnored(k)
+        for _, ik in ipairs(ignoredKeys) do
+            if k == ik then return true end
         end
+        return false
+    end
+
+    if isBindingTP then
+        if isIgnored(input.KeyCode) then return end
         TELEPORT_KEY = input.KeyCode
-        setBindingMode(false)
-        TweenService:Create(keyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 80, 30)}):Play()
+        setTPBindingMode(false)
+        TweenService:Create(tpKeyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 80, 30)}):Play()
         task.delay(0.4, function()
-            TweenService:Create(keyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
+            TweenService:Create(tpKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
+        end)
+        return
+    end
+
+    if isBindingSC then
+        if isIgnored(input.KeyCode) then return end
+        SELECT_CLOSEST_KEY = input.KeyCode
+        setSCBindingMode(false)
+        TweenService:Create(scKeyDisplay, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(20, 80, 60)}):Play()
+        task.delay(0.4, function()
+            TweenService:Create(scKeyDisplay, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 18, 80)}):Play()
         end)
         return
     end
 end)
 
 -- =====================
--- MODE BUTTONS (FIGHT / STEAL)
+-- MODE BUTTONS (FIGHT / STEAL)  — shifted down by 54px to make room for new section
 -- =====================
-local currentMode = "FIGHT" -- default
+local currentMode = "FIGHT"
 
 local modeSection = Instance.new("Frame")
 modeSection.Size = UDim2.new(1, -12, 0, 36)
-modeSection.Position = UDim2.new(0, 6, 0, 98)
+modeSection.Position = UDim2.new(0, 6, 0, 152)
 modeSection.BackgroundColor3 = Color3.fromRGB(20, 11, 48)
 modeSection.BorderSizePixel = 0
 modeSection.ZIndex = 3
@@ -313,7 +384,6 @@ modeSectionStroke.Thickness = 1
 modeSectionStroke.Transparency = 0.5
 modeSectionStroke.Parent = modeSection
 
--- FIGHT button
 local fightBtn = Instance.new("TextButton")
 fightBtn.Size = UDim2.new(0.5, -5, 1, -8)
 fightBtn.Position = UDim2.new(0, 4, 0, 4)
@@ -331,10 +401,9 @@ Instance.new("UICorner", fightBtn).CornerRadius = UDim.new(0, 6)
 local fightStroke = Instance.new("UIStroke")
 fightStroke.Color = Color3.fromRGB(220, 60, 60)
 fightStroke.Thickness = 1.5
-fightStroke.Transparency = 0 -- active by default
+fightStroke.Transparency = 0
 fightStroke.Parent = fightBtn
 
--- STEAL button
 local stealBtn = Instance.new("TextButton")
 stealBtn.Size = UDim2.new(0.5, -5, 1, -8)
 stealBtn.Position = UDim2.new(0.5, 1, 0, 4)
@@ -352,35 +421,30 @@ Instance.new("UICorner", stealBtn).CornerRadius = UDim.new(0, 6)
 local stealStroke = Instance.new("UIStroke")
 stealStroke.Color = Color3.fromRGB(100, 180, 255)
 stealStroke.Thickness = 1.5
-stealStroke.Transparency = 0.6 -- inactive
+stealStroke.Transparency = 0.6
 stealStroke.Parent = stealBtn
 
 local function setMode(mode)
     currentMode = mode
     if mode == "FIGHT" then
         STICK_OFFSET = Vector3.new(0, 0, 5)
-        -- FIGHT active
         TweenService:Create(fightBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(80, 20, 20)}):Play()
         fightBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
         TweenService:Create(fightStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
-        -- STEAL inactive
         TweenService:Create(stealBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
         stealBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         TweenService:Create(stealStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
     else
         STICK_OFFSET = Vector3.new(0, 0, 1.5)
-        -- STEAL active
         TweenService:Create(stealBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(15, 30, 70)}):Play()
         stealBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
         TweenService:Create(stealStroke, TweenInfo.new(0.15), {Transparency = 0}):Play()
-        -- FIGHT inactive
         TweenService:Create(fightBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(25, 25, 50)}):Play()
         fightBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
         TweenService:Create(fightStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
     end
 end
 
--- Set initial offset to match default FIGHT mode
 STICK_OFFSET = Vector3.new(0, 0, 3)
 
 fightBtn.MouseButton1Click:Connect(function() setMode("FIGHT") end)
@@ -410,7 +474,7 @@ end)
 -- Divider
 local div = Instance.new("Frame")
 div.Size = UDim2.new(1, -12, 0, 1)
-div.Position = UDim2.new(0, 6, 0, 138)
+div.Position = UDim2.new(0, 6, 0, 192)
 div.BackgroundColor3 = Color3.fromRGB(75, 35, 150)
 div.BackgroundTransparency = 0.4
 div.BorderSizePixel = 0
@@ -419,8 +483,8 @@ div.Parent = frame
 
 -- Player list
 local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(1, -10, 1, -168)
-list.Position = UDim2.new(0, 5, 0, 142)
+list.Size = UDim2.new(1, -10, 1, -222)
+list.Position = UDim2.new(0, 5, 0, 196)
 list.BackgroundTransparency = 1
 list.BorderSizePixel = 0
 list.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -627,6 +691,44 @@ Players.PlayerRemoving:Connect(function(plr)
 end)
 
 -- =====================
+-- SELECT CLOSEST LOGIC
+-- =====================
+local function selectClosestPlayer()
+    local myChar = lp.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local closest = nil
+    local closestDist = math.huge
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (hrp.Position - myHRP.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = plr
+                end
+            end
+        end
+    end
+
+    if closest then
+        selectedPlayer = closest
+        setStatus("◎ Closest: " .. closest.Name, Color3.fromRGB(60, 220, 170))
+        -- Flash the GUI stroke teal briefly
+        TweenService:Create(stroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(60, 220, 170), Transparency = 0}):Play()
+        task.delay(0.5, function()
+            TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(110, 55, 240), Transparency = 0.25}):Play()
+        end)
+        refresh()
+    else
+        setStatus("No players found", Color3.fromRGB(200, 80, 80))
+    end
+end
+
+-- =====================
 -- TELEPORT / STICK
 -- =====================
 RunService.RenderStepped:Connect(function()
@@ -640,8 +742,15 @@ RunService.RenderStepped:Connect(function()
 end)
 
 UIS.InputBegan:Connect(function(input, gpe)
-    if isBinding then return end
+    if isBindingTP or isBindingSC then return end
     if gpe then return end
+
+    -- Select Closest key (no gpe check so it always fires)
+    if input.KeyCode == SELECT_CLOSEST_KEY then
+        selectClosestPlayer()
+        return
+    end
+
     if input.KeyCode == TELEPORT_KEY then
         if selectedPlayer and selectedPlayer.Character and lp.Character then
             local tHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -657,7 +766,7 @@ UIS.InputBegan:Connect(function(input, gpe)
 end)
 
 UIS.InputEnded:Connect(function(input)
-    if isBinding then return end
+    if isBindingTP or isBindingSC then return end
     if input.KeyCode == TELEPORT_KEY then
         stickActive = false
         if selectedPlayer then
