@@ -1,0 +1,372 @@
+--[[
+WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local plr = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local mouse = plr:GetMouse()
+
+-- AIMBOT VARIABLES
+
+local aimFov = 100
+local aiming = false
+local smoothing = 0.95
+local predictionStrength = 0
+
+local aimbotEnabled = false
+local stickyAimEnabled = true
+local wallCheck = true
+local teamCheck = false
+
+local circleColor = Color3.fromRGB(255,0,0)
+
+-- ESP VARIABLES
+
+local espEnabled = false
+local tracerEnabled = false
+local nameESPEnabled = false
+local espColor = Color3.fromRGB(255,0,0)
+
+local highlights = {}
+local tracers = {}
+local nameTags = {}
+
+-- WINDOW
+
+local Window = Rayfield:CreateWindow({
+	Name = "▶ Universal Aimbot ◀",
+	LoadingTitle = "Loading...",
+	LoadingSubtitle = "by Agreed 🥵",
+	ConfigurationSaving = {
+		Enabled = true,
+		FolderName = "UniversalAimbot",
+		FileName = "byAgreed"
+	},
+})
+
+local Aimbot = Window:CreateTab("Aimbot 🎯")
+local ESP = Window:CreateTab("ESP 👁")
+
+-- FOV CIRCLE
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 2
+fovCircle.Radius = aimFov
+fovCircle.Filled = false
+fovCircle.Color = circleColor
+fovCircle.Visible = false
+
+-- TEAM CHECK
+
+local function checkTeam(player)
+	if teamCheck and player.Team == plr.Team then
+		return true
+	end
+	return false
+end
+
+-- WALL CHECK
+
+local function checkWall(char)
+
+	local head = char:FindFirstChild("Head")
+	if not head then return true end
+
+	local origin = camera.CFrame.Position
+	local direction = (head.Position - origin)
+
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {plr.Character, char}
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+
+	local result = Workspace:Raycast(origin, direction, params)
+
+	return result ~= nil
+end
+
+-- TARGET FINDER
+
+local function getTarget()
+
+	local nearest = nil
+	local shortest = aimFov
+
+	for _,player in ipairs(Players:GetPlayers()) do
+
+		if player ~= plr and player.Character and player.Character:FindFirstChild("Head") and not checkTeam(player) then
+
+			local head = player.Character.Head
+			local pos = camera:WorldToViewportPoint(head.Position)
+
+			local screen = Vector2.new(pos.X,pos.Y)
+			local mousePos = Vector2.new(mouse.X,mouse.Y)
+
+			local dist = (screen-mousePos).Magnitude
+
+			if dist < shortest and pos.Z > 0 then
+
+				if not wallCheck or not checkWall(player.Character) then
+					shortest = dist
+					nearest = player
+				end
+
+			end
+
+		end
+
+	end
+
+	return nearest
+
+end
+
+-- AIM
+
+local function smooth(from,to)
+	return from:Lerp(to,smoothing)
+end
+
+local function aimAt(player)
+
+	if player and player.Character and player.Character:FindFirstChild("Head") then
+
+		local head = player.Character.Head
+		local predicted = head.Position + (player.Character.HumanoidRootPart.Velocity * predictionStrength)
+
+		local target = CFrame.new(camera.CFrame.Position,predicted)
+		camera.CFrame = smooth(camera.CFrame,target)
+
+	end
+
+end
+
+-- LOOP
+
+RunService.RenderStepped:Connect(function()
+
+	if aimbotEnabled then
+		fovCircle.Position = Vector2.new(mouse.X,mouse.Y+50)
+	end
+
+	if aiming and aimbotEnabled then
+
+		local target = getTarget()
+
+		if target then
+			aimAt(target)
+		end
+
+	end
+
+	-- ESP
+
+	for _,player in ipairs(Players:GetPlayers()) do
+
+		if player ~= plr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Head") then
+
+			local char = player.Character
+			local hrp = char.HumanoidRootPart
+			local head = char.Head
+
+			-- HIGHLIGHT
+
+			if espEnabled then
+
+				if not highlights[player] then
+					local h = Instance.new("Highlight")
+					h.FillTransparency = 0.5
+					h.OutlineTransparency = 0
+					h.Parent = char
+					highlights[player] = h
+				end
+
+				highlights[player].FillColor = espColor
+				highlights[player].OutlineColor = espColor
+
+			else
+
+				if highlights[player] then
+					highlights[player]:Destroy()
+					highlights[player] = nil
+				end
+
+			end
+
+			-- NAME ESP
+
+			if nameESPEnabled then
+
+				if not nameTags[player] then
+
+					local billboard = Instance.new("BillboardGui")
+					billboard.Size = UDim2.new(0,50,0,40)
+					billboard.StudsOffset = Vector3.new(0,2,0)
+					billboard.AlwaysOnTop = true
+					billboard.Parent = head
+
+					local text = Instance.new("TextLabel")
+					text.Size = UDim2.new(1,0,1,0)
+					text.BackgroundTransparency = 1
+					text.TextScaled = true
+					text.Font = Enum.Font.SourceSansBold
+					text.Text = player.DisplayName
+					text.Parent = billboard
+
+					nameTags[player] = text
+				end
+
+				nameTags[player].TextColor3 = espColor
+
+			else
+
+				if nameTags[player] then
+					nameTags[player].Parent:Destroy()
+					nameTags[player] = nil
+				end
+
+			end
+
+			-- TRACERS
+
+			if tracerEnabled then
+
+				if not tracers[player] then
+					local line = Drawing.new("Line")
+					line.Thickness = 2
+					tracers[player] = line
+				end
+
+				tracers[player].Color = espColor
+
+				local pos,visible = camera:WorldToViewportPoint(hrp.Position)
+
+				if visible then
+					tracers[player].From = Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y)
+					tracers[player].To = Vector2.new(pos.X,pos.Y)
+					tracers[player].Visible = true
+				else
+					tracers[player].Visible = false
+				end
+
+			else
+
+				if tracers[player] then
+					tracers[player]:Remove()
+					tracers[player] = nil
+				end
+
+			end
+
+		end
+
+	end
+
+end)
+
+-- AIM KEY
+
+mouse.Button2Down:Connect(function()
+	if aimbotEnabled then aiming = true end
+end)
+
+mouse.Button2Up:Connect(function()
+	if aimbotEnabled then aiming = false end
+end)
+
+-- AIMBOT UI
+
+Aimbot:CreateToggle({
+	Name = "Aimbot",
+	CurrentValue = false,
+	Callback = function(v)
+		aimbotEnabled = v
+		fovCircle.Visible = v
+	end
+})
+
+Aimbot:CreateToggle({
+	Name = "Wall Check",
+	CurrentValue = true,
+	Callback = function(v)
+		wallCheck = v
+	end
+})
+
+Aimbot:CreateToggle({
+	Name = "Sticky Aim",
+	CurrentValue = true,
+	Callback = function(v)
+		stickyAimEnabled = v
+	end
+})
+
+Aimbot:CreateSlider({
+	Name = "Smoothing",
+	Range = {0,100},
+	Increment = 1,
+	CurrentValue = 5,
+	Callback = function(v)
+		smoothing = 1 - (v/100)
+	end
+})
+
+Aimbot:CreateSlider({
+	Name = "Prediction Strength",
+	Range = {0,0.2},
+	Increment = 0.001,
+	CurrentValue = 0,
+	Callback = function(v)
+		predictionStrength = v
+	end
+})
+
+Aimbot:CreateSlider({
+	Name = "Aimbot FOV",
+	Range = {0,1000},
+	Increment = 1,
+	CurrentValue = 100,
+	Callback = function(v)
+		aimFov = v
+		fovCircle.Radius = v
+	end
+})
+
+-- ESP UI
+
+ESP:CreateToggle({
+	Name = "Player ESP",
+	CurrentValue = false,
+	Callback = function(v)
+		espEnabled = v
+	end
+})
+
+ESP:CreateToggle({
+	Name = "Tracers",
+	CurrentValue = false,
+	Callback = function(v)
+		tracerEnabled = v
+	end
+})
+
+ESP:CreateToggle({
+	Name = "DisplayName ESP",
+	CurrentValue = false,
+	Callback = function(v)
+		nameESPEnabled = v
+	end
+})
+
+ESP:CreateColorPicker({
+	Name = "ESP Color",
+	Color = espColor,
+	Callback = function(c)
+		espColor = c
+	end
+})
