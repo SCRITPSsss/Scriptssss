@@ -1,0 +1,231 @@
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+--// PlaceId config
+local TARGET_PLACE_ID = 109983668079237
+local DEFAULT_SPEED = (game.PlaceId == TARGET_PLACE_ID) and 28.2 or 50
+
+--// Character refs
+local Character, Humanoid, Root
+local function SetupCharacter(char)
+	Character = char
+	Humanoid = char:WaitForChild("Humanoid")
+	Root = char:WaitForChild("HumanoidRootPart")
+end
+
+if player.Character then
+	SetupCharacter(player.Character)
+end
+player.CharacterAdded:Connect(SetupCharacter)
+
+--// ScreenGui (ALWAYS ON TOP)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SagginBoosterGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 2147483647
+ScreenGui.Parent = PlayerGui
+
+--// Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 150, 0, 130)
+MainFrame.Position = UDim2.new(1, -170, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
+MainFrame.Active = true
+MainFrame.ZIndex = 100
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,10)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(255,60,60)
+Stroke.Thickness = 2
+Stroke.Parent = MainFrame
+
+--// Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,24)
+Title.BackgroundTransparency = 1
+Title.Text = "SAGGIN BOOSTER"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextColor3 = Color3.fromRGB(255,60,60)
+Title.ZIndex = 101
+Title.Parent = MainFrame
+
+--// Status
+local Status = Instance.new("TextLabel")
+Status.Position = UDim2.new(0,0,0,24)
+Status.Size = UDim2.new(1,0,0,14)
+Status.BackgroundTransparency = 1
+Status.Text = "OFF"
+Status.Font = Enum.Font.GothamBold
+Status.TextSize = 12
+Status.TextColor3 = Color3.fromRGB(180,60,60)
+Status.ZIndex = 101
+Status.Parent = MainFrame
+
+--// Speed Box
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Position = UDim2.new(0,12,0,42)
+SpeedBox.Size = UDim2.new(1,-24,0,24)
+SpeedBox.Text = tostring(DEFAULT_SPEED)
+SpeedBox.ClearTextOnFocus = false
+SpeedBox.BackgroundColor3 = Color3.fromRGB(30,30,30)
+SpeedBox.TextColor3 = Color3.fromRGB(255,60,60)
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.TextSize = 14
+SpeedBox.ZIndex = 101
+SpeedBox.Parent = MainFrame
+Instance.new("UICorner", SpeedBox)
+Instance.new("UIStroke", SpeedBox).Color = Color3.fromRGB(255,60,60)
+
+--// Mode Button
+local ModeButton = Instance.new("TextButton")
+ModeButton.Position = UDim2.new(0,12,0,72)
+ModeButton.Size = UDim2.new(1,-24,0,22)
+ModeButton.Text = "MODE: WALKSPEED"
+ModeButton.BackgroundColor3 = Color3.fromRGB(30,30,30)
+ModeButton.TextColor3 = Color3.fromRGB(255,60,60)
+ModeButton.Font = Enum.Font.GothamBold
+ModeButton.TextSize = 12
+ModeButton.ZIndex = 101
+ModeButton.Parent = MainFrame
+Instance.new("UICorner", ModeButton)
+Instance.new("UIStroke", ModeButton).Color = Color3.fromRGB(255,60,60)
+
+--// Toggle Button
+local Toggle = Instance.new("TextButton")
+Toggle.Position = UDim2.new(0.5,-25,1,-28)
+Toggle.Size = UDim2.new(0,50,0,22)
+Toggle.Text = ""
+Toggle.BackgroundColor3 = Color3.fromRGB(90,90,90)
+Toggle.ZIndex = 101
+Toggle.Parent = MainFrame
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(1,0)
+
+local Knob = Instance.new("Frame")
+Knob.Size = UDim2.new(0,18,0,18)
+Knob.Position = UDim2.new(0,2,0.5,-9)
+Knob.BackgroundColor3 = Color3.fromRGB(220,220,220)
+Knob.ZIndex = 102
+Knob.Parent = Toggle
+Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+
+--// Dragging (REAL + WORKING)
+local dragging, dragStart, startPos, dragInput
+
+local function updateDrag(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input == dragInput then
+		updateDrag(input)
+	end
+end)
+
+--// Movement Logic (CLEAN)
+local Enabled = false
+local Mode = "WalkSpeed"
+local VelocityConn
+
+ModeButton.MouseButton1Click:Connect(function()
+	Mode = (Mode == "WalkSpeed") and "Velocity" or "WalkSpeed"
+	ModeButton.Text = "MODE: " .. string.upper(Mode)
+end)
+
+local function StopMovement()
+	if VelocityConn then
+		VelocityConn:Disconnect()
+		VelocityConn = nil
+	end
+	if Humanoid then
+		Humanoid.WalkSpeed = 16
+	end
+end
+
+local function StartMovement()
+	local speed = tonumber(SpeedBox.Text) or DEFAULT_SPEED
+
+	if Mode == "WalkSpeed" then
+		Humanoid.WalkSpeed = speed
+		return
+	end
+
+	if Mode == "Velocity" then
+		VelocityConn = RunService.Heartbeat:Connect(function()
+			if not Enabled then return end
+			local dir = Humanoid.MoveDirection
+			if dir.Magnitude > 0 then
+				Root.AssemblyLinearVelocity = Vector3.new(
+					dir.X * speed,
+					Root.AssemblyLinearVelocity.Y,
+					dir.Z * speed
+				)
+			end
+		end)
+	end
+end
+
+local function SetToggle(state)
+	Enabled = state
+	Knob.Position = state and UDim2.new(1,-20,0.5,-9) or UDim2.new(0,2,0.5,-9)
+	Status.Text = state and "ON" or "OFF"
+	Status.TextColor3 = state and Color3.fromRGB(60,255,120) or Color3.fromRGB(180,60,60)
+
+	if state then
+		StartMovement()
+	else
+		StopMovement()
+	end
+end
+
+Toggle.MouseButton1Click:Connect(function()
+	SetToggle(not Enabled)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+	if not gp and input.KeyCode == Enum.KeyCode.U then
+		SetToggle(not Enabled)
+	end
+end)
+
+SpeedBox.FocusLost:Connect(function()
+	if not tonumber(SpeedBox.Text) then
+		SpeedBox.Text = tostring(DEFAULT_SPEED)
+	end
+end)
