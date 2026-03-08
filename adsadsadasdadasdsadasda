@@ -7,6 +7,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local plr = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -269,14 +270,22 @@ RunService.RenderStepped:Connect(function()
 
 end)
 
--- AIM KEY
+-- AIM KEY (P)
 
-mouse.Button2Down:Connect(function()
-	if aimbotEnabled then aiming = true end
+UserInputService.InputBegan:Connect(function(input,gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.P then
+		if aimbotEnabled then
+			aiming = true
+		end
+	end
 end)
 
-mouse.Button2Up:Connect(function()
-	if aimbotEnabled then aiming = false end
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.P then
+		aiming = false
+	end
 end)
 
 -- AIMBOT UI
